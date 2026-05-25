@@ -22,6 +22,8 @@ using namespace fincept::multiuser;
 
 namespace {
 
+const auto kValidPassword = QStringLiteral("Passw0rd!");
+
 class RecordingBackend : public PhaseOneRequestBackend {
   public:
     void send(const QString& method, const QString& url, const QJsonObject& body, const QMap<QString, QString>& headers,
@@ -138,7 +140,7 @@ void PhaseOneAuthLoginTest::phase_one_login_returns_setup_required_when_bootstra
 }
 
 void PhaseOneAuthLoginTest::phase_one_login_rejects_invalid_credentials() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
 
     const auto response = harness().login_request(QStringLiteral("admin"), QStringLiteral("wrong"));
     QCOMPARE(response.status_code, 401);
@@ -146,9 +148,9 @@ void PhaseOneAuthLoginTest::phase_one_login_rejects_invalid_credentials() {
 }
 
 void PhaseOneAuthLoginTest::phase_one_login_returns_top_level_session_payload() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
 
-    const auto response = harness().login_request(QStringLiteral("admin"), QStringLiteral("secret"));
+    const auto response = harness().login_request(QStringLiteral("admin"), kValidPassword);
     QCOMPARE(response.status_code, 200);
 
     const QJsonObject body = harness().body(response);

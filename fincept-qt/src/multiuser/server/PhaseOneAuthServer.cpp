@@ -197,8 +197,8 @@ fincept::Result<void> PhaseOneAuthServer::invalidate_session_with_audit(const Ph
                                                                          const QString& actor,
                                                                          const QString& reason) const {
     const auto result = session_repository_->invalidate_session(session.session_id);
-    Q_UNUSED(reason)
-    write_session_event(actor, QStringLiteral("forced_invalidation"), session.session_id,
+    const QString action = reason.trimmed().isEmpty() ? QStringLiteral("forced_invalidation") : reason;
+    write_session_event(actor, action, session.session_id,
                         result.is_ok() ? QStringLiteral("success") : QStringLiteral("failure"));
     return result;
 }

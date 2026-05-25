@@ -32,6 +32,8 @@ using namespace fincept::multiuser;
 
 namespace {
 
+const auto kValidPassword = QStringLiteral("Passw0rd!");
+
 class RecordingBackend : public PhaseOneRequestBackend {
   public:
     void send(const QString& method, const QString& url, const QJsonObject& body, const QMap<QString, QString>& headers,
@@ -90,7 +92,7 @@ class PhaseOnePortfolioHarness {
     }
 
     QString create_standard_session() {
-        if (!user_admin_server->bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok())
+        if (!user_admin_server->bootstrap(QStringLiteral("admin"), kValidPassword).is_ok())
             qFatal("bootstrap failed");
         if (!user_admin_server->create_user(QStringLiteral("analyst")).is_ok())
             qFatal("create_user failed");
@@ -98,10 +100,10 @@ class PhaseOnePortfolioHarness {
         const auto analyst = user_repository.find_by_username(QStringLiteral("analyst"));
         if (!analyst.has_value())
             qFatal("analyst user not found");
-        if (!user_admin_server->set_initial_password(analyst->user_id, QStringLiteral("analyst-pass")).is_ok())
+        if (!user_admin_server->set_initial_password(analyst->user_id, QStringLiteral("Analyst123")).is_ok())
             qFatal("set_initial_password failed");
 
-        const auto login = auth_server->login(QStringLiteral("analyst"), QStringLiteral("analyst-pass"));
+        const auto login = auth_server->login(QStringLiteral("analyst"), QStringLiteral("Analyst123"));
         if (!login.is_ok())
             qFatal("login failed");
         return login.value().session_id;

@@ -20,6 +20,8 @@ using namespace fincept::multiuser;
 
 namespace {
 
+const auto kValidPassword = QStringLiteral("Passw0rd!");
+
 class PhaseOneAuditHarness {
   public:
     PhaseOneAuditHarness()
@@ -93,18 +95,18 @@ class PhaseOneAuditAdminTest : public QObject {
 
 void PhaseOneAuditAdminTest::init() {
     harness().reset_database();
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
     QVERIFY(harness().user_admin_server.create_user(QStringLiteral("analyst")).is_ok());
     const auto analyst = harness().user_repository.find_by_username(QStringLiteral("analyst"));
     QVERIFY(analyst.has_value());
-    QVERIFY(harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("launch-123")).is_ok());
+    QVERIFY(harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("Launch123")).is_ok());
 }
 
 void PhaseOneAuditAdminTest::admin_routes_require_bearer_authentication_and_admin_role() {
     const auto no_auth = harness().dispatch("GET /phase1/admin/audit-events HTTP/1.1\r\nHost: localhost\r\n\r\n");
     QCOMPARE(no_auth.status_code, 401);
 
-    const QString user_session = harness().login(QStringLiteral("analyst"), QStringLiteral("launch-123"));
+    const QString user_session = harness().login(QStringLiteral("analyst"), QStringLiteral("Launch123"));
     QVERIFY(!user_session.isEmpty());
     const QByteArray user_request = QByteArray("GET /phase1/admin/audit-events HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer ") +
                                     user_session.toUtf8() + QByteArray("\r\n\r\n");
@@ -114,7 +116,7 @@ void PhaseOneAuditAdminTest::admin_routes_require_bearer_authentication_and_admi
 }
 
 void PhaseOneAuditAdminTest::admin_can_retrieve_recent_audit_events_with_filters() {
-    const QString admin_session = harness().login(QStringLiteral("admin"), QStringLiteral("secret"));
+    const QString admin_session = harness().login(QStringLiteral("admin"), kValidPassword);
     QVERIFY(!admin_session.isEmpty());
 
     const auto analyst = harness().user_repository.find_by_username(QStringLiteral("analyst"));

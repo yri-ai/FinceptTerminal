@@ -1,5 +1,6 @@
 #include "multiuser/server/PhaseOneUserAdminCommands.h"
 
+#include "auth/AuthTypes.h"
 #include "multiuser/server/PhaseOnePasswordHasher.h"
 #include "storage/sqlite/Database.h"
 
@@ -24,6 +25,11 @@ fincept::Result<void> PhaseOneUserAdminCommands::bootstrap(const QString& userna
         write_audit(canonicalize_actor(username), QStringLiteral("bootstrap_admin"), QStringLiteral("system:bootstrap"),
                     QStringLiteral("failure"));
         return fincept::Result<void>::err("invalid_username");
+    }
+    if (!fincept::auth::validate_password(password).valid) {
+        write_audit(canonicalize_actor(username), QStringLiteral("bootstrap_admin"), QStringLiteral("system:bootstrap"),
+                    QStringLiteral("failure"));
+        return fincept::Result<void>::err("invalid_password");
     }
 
     const auto user_count = user_repository_->count_users();
@@ -86,6 +92,8 @@ fincept::Result<void> PhaseOneUserAdminCommands::set_initial_password(int user_i
         return fincept::Result<void>::err("user_not_found");
     if (!user->password_hash.isEmpty())
         return fincept::Result<void>::err("password_already_initialized");
+    if (!fincept::auth::validate_password(password).valid)
+        return fincept::Result<void>::err("invalid_password");
 
     const auto result = user_repository_->set_initial_password(user_id, PhaseOnePasswordHasher::hash_password(password));
     if (result.is_err())

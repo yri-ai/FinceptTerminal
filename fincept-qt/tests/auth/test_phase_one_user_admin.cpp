@@ -17,6 +17,8 @@ using namespace fincept::multiuser;
 
 namespace {
 
+const auto kValidPassword = QStringLiteral("Passw0rd!");
+
 class PhaseOneServerDbHarness {
   public:
     PhaseOneServerDbHarness() {
@@ -87,6 +89,8 @@ class PhaseOneUserAdminTest : public QObject {
     void bootstrap_status_fails_closed_when_user_count_lookup_fails();
     void set_initial_password_stores_secure_hash_and_not_plaintext();
     void set_initial_password_is_one_time_only();
+    void bootstrap_rejects_weak_password();
+    void set_initial_password_rejects_weak_password();
     void create_user_enforces_active_user_cap_and_disabled_users_do_not_count();
     void blank_usernames_are_rejected();
     void sole_admin_cannot_be_disabled_and_transfer_preserves_exactly_one_active_admin();
@@ -102,7 +106,7 @@ void PhaseOneUserAdminTest::bootstrap_is_open_only_until_first_admin_is_created(
     QVERIFY(before.is_ok());
     QVERIFY(before.value().bootstrap_open);
 
-    const auto bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("Admin"), QStringLiteral("secret"));
+    const auto bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("Admin"), kValidPassword);
     QVERIFY2(bootstrap.is_ok(), bootstrap.is_ok() ? "" : bootstrap.error().c_str());
 
     const auto after = harness().user_admin_server.bootstrap_status();
@@ -115,17 +119,17 @@ void PhaseOneUserAdminTest::bootstrap_is_open_only_until_first_admin_is_created(
     QCOMPARE(admin->role, QStringLiteral("admin"));
     QCOMPARE(admin->status, QStringLiteral("active"));
     QVERIFY(!admin->password_hash.isEmpty());
-    QVERIFY(admin->password_hash != QStringLiteral("secret"));
+    QVERIFY(admin->password_hash != kValidPassword);
     QCOMPARE(active_admin_count(), 1);
 
-    const auto second_bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("other"), QStringLiteral("secret"));
+    const auto second_bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("other"), kValidPassword);
     QVERIFY(second_bootstrap.is_err());
 }
 
 void PhaseOneUserAdminTest::bootstrap_returns_structured_error_when_user_count_lookup_fails() {
     fincept::Database::instance().close();
 
-    const auto bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret"));
+    const auto bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword);
 
     QVERIFY(bootstrap.is_err());
 }
@@ -140,7 +144,7 @@ void PhaseOneUserAdminTest::bootstrap_status_fails_closed_when_user_count_lookup
 }
 
 void PhaseOneUserAdminTest::set_initial_password_stores_secure_hash_and_not_plaintext() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
     const auto create = harness().user_admin_server.create_user(QStringLiteral("analyst"));
     QVERIFY(create.is_ok());
 
@@ -148,31 +152,49 @@ void PhaseOneUserAdminTest::set_initial_password_stores_secure_hash_and_not_plai
     QVERIFY(analyst.has_value());
     QVERIFY(analyst->password_hash.isEmpty());
 
-    const auto set_password = harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("launch-123"));
+    const auto set_password = harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("Launch123"));
     QVERIFY(set_password.is_ok());
 
     const auto updated = harness().user_repository.find_by_id(analyst->user_id);
     QVERIFY(updated.has_value());
     QVERIFY(!updated->password_hash.isEmpty());
-    QVERIFY(updated->password_hash != QStringLiteral("launch-123"));
+    QVERIFY(updated->password_hash != QStringLiteral("Launch123"));
     QVERIFY(updated->password_hash.startsWith(QStringLiteral("pbkdf2_sha256$200000$")));
 }
 
 void PhaseOneUserAdminTest::set_initial_password_is_one_time_only() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
     QVERIFY(harness().user_admin_server.create_user(QStringLiteral("analyst")).is_ok());
 
     const auto analyst = harness().user_repository.find_by_username(QStringLiteral("analyst"));
     QVERIFY(analyst.has_value());
-    QVERIFY(harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("launch-123")).is_ok());
+    QVERIFY(harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("Launch123")).is_ok());
 
-    const auto second_set = harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("reset-456"));
+    const auto second_set = harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("Reset456"));
     QVERIFY(second_set.is_err());
     QCOMPARE(QString::fromStdString(second_set.error()), QStringLiteral("password_already_initialized"));
 }
 
+void PhaseOneUserAdminTest::bootstrap_rejects_weak_password() {
+    const auto bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret"));
+    QVERIFY(bootstrap.is_err());
+    QCOMPARE(QString::fromStdString(bootstrap.error()), QStringLiteral("invalid_password"));
+}
+
+void PhaseOneUserAdminTest::set_initial_password_rejects_weak_password() {
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
+    QVERIFY(harness().user_admin_server.create_user(QStringLiteral("analyst")).is_ok());
+
+    const auto analyst = harness().user_repository.find_by_username(QStringLiteral("analyst"));
+    QVERIFY(analyst.has_value());
+
+    const auto set_password = harness().user_admin_server.set_initial_password(analyst->user_id, QStringLiteral("secret"));
+    QVERIFY(set_password.is_err());
+    QCOMPARE(QString::fromStdString(set_password.error()), QStringLiteral("invalid_password"));
+}
+
 void PhaseOneUserAdminTest::create_user_enforces_active_user_cap_and_disabled_users_do_not_count() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
     QVERIFY(harness().user_admin_server.create_user(QStringLiteral("user-one")).is_ok());
     QVERIFY(harness().user_admin_server.create_user(QStringLiteral("user-two")).is_ok());
 
@@ -190,18 +212,18 @@ void PhaseOneUserAdminTest::create_user_enforces_active_user_cap_and_disabled_us
 }
 
 void PhaseOneUserAdminTest::blank_usernames_are_rejected() {
-    const auto bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("   "), QStringLiteral("secret"));
+    const auto bootstrap = harness().user_admin_server.bootstrap(QStringLiteral("   "), kValidPassword);
     QVERIFY(bootstrap.is_err());
     QCOMPARE(QString::fromStdString(bootstrap.error()), QStringLiteral("invalid_username"));
 
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
     const auto create = harness().user_admin_server.create_user(QStringLiteral("   "));
     QVERIFY(create.is_err());
     QCOMPARE(QString::fromStdString(create.error()), QStringLiteral("invalid_username"));
 }
 
 void PhaseOneUserAdminTest::sole_admin_cannot_be_disabled_and_transfer_preserves_exactly_one_active_admin() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
     QVERIFY(harness().user_admin_server.create_user(QStringLiteral("operator")).is_ok());
 
     const auto admin = harness().user_repository.find_by_username(QStringLiteral("admin"));
@@ -231,7 +253,7 @@ void PhaseOneUserAdminTest::sole_admin_cannot_be_disabled_and_transfer_preserves
 }
 
 void PhaseOneUserAdminTest::transfer_admin_reports_missing_target_as_user_not_found() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
 
     const auto transfer = harness().user_admin_server.transfer_admin(9999);
 

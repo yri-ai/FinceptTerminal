@@ -156,11 +156,13 @@ void register_phase_one_portfolio_routes(PhaseOneHttpServer& http_server, PhaseO
                                    request.owner = body.value("owner").toString();
                                    request.currency = body.value("currency").toString(QStringLiteral("USD"));
                                    request.description = body.value("description").toString();
-                                   const auto result = portfolio_server.update_portfolio(*actor, request);
-                                   if (result.is_err()) {
-                                       return portfolio_json_response(404, {{"error_code", QStringLiteral("portfolio_update_failed")},
-                                                                            {"message", QString::fromStdString(result.error())}});
-                                   }
+                                    const auto result = portfolio_server.update_portfolio(*actor, request);
+                                    if (result.is_err()) {
+                                        const QString message = QString::fromStdString(result.error());
+                                        const int status = message == QStringLiteral("Not found") ? 404 : 500;
+                                        return portfolio_json_response(status, {{"error_code", QStringLiteral("portfolio_update_failed")},
+                                                                             {"message", message}});
+                                    }
                                    return portfolio_json_response(200, {{"portfolio", to_json(result.value())}});
                                });
 

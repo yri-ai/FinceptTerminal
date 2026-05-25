@@ -25,6 +25,8 @@ using namespace fincept::multiuser;
 
 namespace {
 
+const auto kValidPassword = QStringLiteral("Passw0rd!");
+
 class PhaseOneSessionHarness {
   public:
     PhaseOneSessionHarness() : auth_server(&user_repository, &session_repository, &audit_repository),
@@ -47,11 +49,11 @@ class PhaseOneSessionHarness {
     }
 
     QString bootstrap_and_login_admin() {
-        if (user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_err()) {
+        if (user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_err()) {
             qFatal("bootstrap failed");
             return {};
         }
-        const auto login = auth_server.login(QStringLiteral("admin"), QStringLiteral("secret"));
+        const auto login = auth_server.login(QStringLiteral("admin"), kValidPassword);
         if (login.is_err()) {
             qFatal("login failed");
             return {};
@@ -188,17 +190,17 @@ void PhaseOneAuthSessionTest::hosted_startup_auth_state_is_also_disabled() {
 void PhaseOneAuthSessionTest::user_without_initial_password_receives_setup_required() {
     QVERIFY(harness().user_repository.create_user(QStringLiteral("alice")).is_ok());
 
-    const auto login = harness().auth_server.login(QStringLiteral("alice"), QStringLiteral("secret"));
+    const auto login = harness().auth_server.login(QStringLiteral("alice"), QStringLiteral("Secret123"));
     QVERIFY(login.is_err());
     QCOMPARE(QString::fromStdString(login.error()), QStringLiteral("setup_required"));
 }
 
 void PhaseOneAuthSessionTest::second_login_replaces_prior_session() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
 
-    const auto first_login = harness().auth_server.login(QStringLiteral("admin"), QStringLiteral("secret"));
+    const auto first_login = harness().auth_server.login(QStringLiteral("admin"), kValidPassword);
     QVERIFY(first_login.is_ok());
-    const auto second_login = harness().auth_server.login(QStringLiteral("admin"), QStringLiteral("secret"));
+    const auto second_login = harness().auth_server.login(QStringLiteral("admin"), kValidPassword);
     QVERIFY(second_login.is_ok());
 
     QVERIFY(first_login.value().session_id != second_login.value().session_id);
@@ -247,19 +249,19 @@ void PhaseOneAuthSessionTest::expired_session_is_invalidated_on_access() {
 }
 
 void PhaseOneAuthSessionTest::disabled_user_login_is_denied_and_active_session_is_invalidated() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
     QVERIFY(harness().user_admin_server.create_user(QStringLiteral("alice")).is_ok());
 
     const auto user = harness().user_repository.find_by_username(QStringLiteral("alice"));
     QVERIFY(user.has_value());
-    QVERIFY(harness().user_admin_server.set_initial_password(user->user_id, QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.set_initial_password(user->user_id, QStringLiteral("Secret123")).is_ok());
 
-    const auto login = harness().auth_server.login(QStringLiteral("alice"), QStringLiteral("secret"));
+    const auto login = harness().auth_server.login(QStringLiteral("alice"), QStringLiteral("Secret123"));
     QVERIFY(login.is_ok());
 
     QVERIFY(harness().user_admin_server.disable_user(user->user_id).is_ok());
 
-    const auto disabled_login = harness().auth_server.login(QStringLiteral("alice"), QStringLiteral("secret"));
+    const auto disabled_login = harness().auth_server.login(QStringLiteral("alice"), QStringLiteral("Secret123"));
     QVERIFY(disabled_login.is_err());
     QCOMPARE(QString::fromStdString(disabled_login.error()), QStringLiteral("user_disabled"));
 
@@ -286,12 +288,12 @@ void PhaseOneAuthSessionTest::logout_invalidates_current_session() {
 }
 
 void PhaseOneAuthSessionTest::auth_events_record_login_failed_login_and_logout() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
 
     const auto failed_login = harness().auth_server.login(QStringLiteral("admin"), QStringLiteral("wrong"));
     QVERIFY(failed_login.is_err());
 
-    const auto success_login = harness().auth_server.login(QStringLiteral("admin"), QStringLiteral("secret"));
+    const auto success_login = harness().auth_server.login(QStringLiteral("admin"), kValidPassword);
     QVERIFY(success_login.is_ok());
     QVERIFY(harness().auth_server.logout(success_login.value().session_id).is_ok());
 
@@ -304,11 +306,11 @@ void PhaseOneAuthSessionTest::auth_events_record_login_failed_login_and_logout()
 }
 
 void PhaseOneAuthSessionTest::forced_invalidation_audit_events_use_schema_valid_result_status() {
-    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), QStringLiteral("secret")).is_ok());
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
 
-    const auto first_login = harness().auth_server.login(QStringLiteral("admin"), QStringLiteral("secret"));
+    const auto first_login = harness().auth_server.login(QStringLiteral("admin"), kValidPassword);
     QVERIFY(first_login.is_ok());
-    const auto second_login = harness().auth_server.login(QStringLiteral("admin"), QStringLiteral("secret"));
+    const auto second_login = harness().auth_server.login(QStringLiteral("admin"), kValidPassword);
     QVERIFY(second_login.is_ok());
 
     const auto events = harness().audit_repository.list_events({});

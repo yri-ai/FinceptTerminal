@@ -157,8 +157,7 @@ fincept::Result<PhaseOneHoldingsListResponse> PhaseOnePortfolioServer::list_hold
     if (portfolio_id.isEmpty())
         return fincept::Result<PhaseOneHoldingsListResponse>::err("portfolio_id_required");
 
-    const auto portfolio = portfolio_repository_->get_portfolio(portfolio_id);
-    if (portfolio.is_err())
+    if (portfolio_repository_->get_portfolio(portfolio_id).is_err())
         return fincept::Result<PhaseOneHoldingsListResponse>::err("portfolio_not_found");
 
     const auto result = portfolio_repository_->get_assets(portfolio_id);
