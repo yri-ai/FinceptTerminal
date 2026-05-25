@@ -37,6 +37,7 @@ void PhaseOneMigrationRegistry::register_all() {
     register_migration_v030();
     register_migration_v031();
     register_migration_v032();
+    register_migration_v033();
 }
 
 } // namespace fincept

@@ -47,6 +47,7 @@ set(PHASE1_HTTP_SOURCES
 
 set(PHASE1_STORAGE_SOURCES
     src/storage/sqlite/migrations/v032_multiuser_phase_one.cpp
+    src/storage/sqlite/migrations/v033_portfolio_asset_names.cpp
     src/multiuser/server/storage/PhaseOneUserRepository.cpp
     src/multiuser/server/storage/PhaseOneSessionRepository.cpp
     src/multiuser/server/storage/PhaseOneAuditRepository.cpp

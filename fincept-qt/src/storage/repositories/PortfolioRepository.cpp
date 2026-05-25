@@ -37,13 +37,14 @@ portfolio::PortfolioAsset PortfolioRepository::map_asset(QSqlQuery& q) {
         q.value(0).toInt(),    // id
         q.value(1).toString(), // portfolio_id
         q.value(2).toString(), // symbol (yfinance-format)
-        q.value(3).toDouble(), // quantity
-        q.value(4).toDouble(), // avg_buy_price
-        q.value(5).toString(), // first_purchase_date
-        q.value(6).toString(), // last_updated
-        q.value(7).toString(), // sector
-        q.value(8).toString(), // broker_symbol (v022)
-        q.value(9).toString(), // exchange (v022)
+        q.value(3).toString(), // name
+        q.value(4).toDouble(), // quantity
+        q.value(5).toDouble(), // avg_buy_price
+        q.value(6).toString(), // first_purchase_date
+        q.value(7).toString(), // last_updated
+        q.value(8).toString(), // sector
+        q.value(9).toString(), // broker_symbol (v022)
+        q.value(10).toString(), // exchange (v022)
     };
 }
 
@@ -123,7 +124,7 @@ Result<void> PortfolioRepository::delete_portfolio(const QString& id) {
 
 Result<QVector<portfolio::PortfolioAsset>> PortfolioRepository::get_assets(const QString& portfolio_id) {
     return query_list_as<portfolio::PortfolioAsset>(
-        "SELECT id, portfolio_id, symbol, quantity, avg_buy_price, first_purchase_date, last_updated, "
+        "SELECT id, portfolio_id, symbol, COALESCE(holding_name, symbol), quantity, avg_buy_price, first_purchase_date, last_updated, "
         "COALESCE(sector, ''), COALESCE(broker_symbol, ''), COALESCE(exchange, '') "
         "FROM portfolio_assets WHERE portfolio_id = ? ORDER BY symbol",
         {portfolio_id}, map_asset);
@@ -131,7 +132,7 @@ Result<QVector<portfolio::PortfolioAsset>> PortfolioRepository::get_assets(const
 
 Result<portfolio::PortfolioAsset> PortfolioRepository::get_asset_by_id(int id) {
     const auto result = query_list_as<portfolio::PortfolioAsset>(
-        "SELECT id, portfolio_id, symbol, quantity, avg_buy_price, first_purchase_date, last_updated, "
+        "SELECT id, portfolio_id, symbol, COALESCE(holding_name, symbol), quantity, avg_buy_price, first_purchase_date, last_updated, "
         "COALESCE(sector, ''), COALESCE(broker_symbol, ''), COALESCE(exchange, '') "
         "FROM portfolio_assets WHERE id = ?",
         {id}, map_asset);
@@ -142,9 +143,9 @@ Result<portfolio::PortfolioAsset> PortfolioRepository::get_asset_by_id(int id) {
     return Result<portfolio::PortfolioAsset>::ok(result.value().first());
 }
 
-Result<qint64> PortfolioRepository::add_asset(const QString& portfolio_id, const QString& symbol, double qty,
-                                               double price, const QString& date, const QString& sector,
-                                               const QString& broker_symbol, const QString& exchange) {
+Result<qint64> PortfolioRepository::add_asset(const QString& portfolio_id, const QString& symbol, const QString& name, double qty,
+                                              double price, const QString& date, const QString& sector,
+                                              const QString& broker_symbol, const QString& exchange) {
     QString purchase_date = date.isEmpty() ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : date;
 
     // Upsert: if symbol already exists in portfolio, update quantity and avg price.
@@ -152,7 +153,7 @@ Result<qint64> PortfolioRepository::add_asset(const QString& portfolio_id, const
     // provides non-empty values (manual editors don't pass broker fields, so
     // preserving prior values keeps a re-imported broker portfolio working).
     auto existing = query_list_as<portfolio::PortfolioAsset>(
-        "SELECT id, portfolio_id, symbol, quantity, avg_buy_price, first_purchase_date, last_updated, "
+        "SELECT id, portfolio_id, symbol, COALESCE(holding_name, symbol), quantity, avg_buy_price, first_purchase_date, last_updated, "
         "COALESCE(sector, ''), COALESCE(broker_symbol, ''), COALESCE(exchange, '') "
         "FROM portfolio_assets WHERE portfolio_id = ? AND symbol = ?",
         {portfolio_id, symbol.toUpper()}, map_asset);
@@ -161,21 +162,23 @@ Result<qint64> PortfolioRepository::add_asset(const QString& portfolio_id, const
         auto& asset = existing.value().first();
         double new_qty = asset.quantity + qty;
         double new_avg = ((asset.avg_buy_price * asset.quantity) + (price * qty)) / new_qty;
+        QString merged_name = name.isEmpty() ? asset.name : name;
         QString merged_sector = sector.isEmpty() ? asset.sector : sector;
         QString merged_broker_symbol = broker_symbol.isEmpty() ? asset.broker_symbol : broker_symbol;
         QString merged_exchange = exchange.isEmpty() ? asset.exchange : exchange;
-        auto r = exec_write("UPDATE portfolio_assets SET quantity = ?, avg_buy_price = ?, sector = ?, "
+        auto r = exec_write("UPDATE portfolio_assets SET holding_name = ?, quantity = ?, avg_buy_price = ?, sector = ?, "
                             "broker_symbol = ?, exchange = ?, last_updated = datetime('now') WHERE id = ?",
-                            {new_qty, new_avg, merged_sector, merged_broker_symbol, merged_exchange, asset.id});
+                            {merged_name, new_qty, new_avg, merged_sector, merged_broker_symbol, merged_exchange, asset.id});
         if (r.is_err())
             return Result<qint64>::err(r.error());
         return Result<qint64>::ok(static_cast<qint64>(asset.id));
     }
 
     return exec_insert(
-        "INSERT INTO portfolio_assets (portfolio_id, symbol, quantity, avg_buy_price, first_purchase_date, "
-        "sector, broker_symbol, exchange) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        {portfolio_id, symbol.toUpper(), qty, price, purchase_date, sector, broker_symbol, exchange});
+        "INSERT INTO portfolio_assets (portfolio_id, symbol, holding_name, quantity, avg_buy_price, first_purchase_date, "
+        "sector, broker_symbol, exchange) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        {portfolio_id, symbol.toUpper(), name.isEmpty() ? symbol.toUpper() : name, qty, price, purchase_date, sector,
+         broker_symbol, exchange});
 }
 
 Result<void> PortfolioRepository::set_asset_sector(const QString& portfolio_id, const QString& symbol,

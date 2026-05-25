@@ -29,9 +29,9 @@ class PortfolioRepository : public BaseRepository<portfolio::Portfolio> {
     /// "RELIANCE" + "NSE"); both empty for manual / JSON imports. The
     /// canonical `symbol` arg stays in yfinance-format ("RELIANCE.NS")
     /// regardless — every downstream consumer treats it as such.
-    Result<qint64> add_asset(const QString& portfolio_id, const QString& symbol, double qty, double price,
-                             const QString& date = {}, const QString& sector = {},
-                             const QString& broker_symbol = {}, const QString& exchange = {});
+    Result<qint64> add_asset(const QString& portfolio_id, const QString& symbol, const QString& name, double qty, double price,
+                              const QString& date = {}, const QString& sector = {},
+                              const QString& broker_symbol = {}, const QString& exchange = {});
     Result<void> update_asset(const QString& portfolio_id, const QString& symbol, double qty, double avg_price);
     Result<void> update_asset_by_id(int id, double qty, double avg_price, const QString& sector = {});
     Result<void> set_asset_sector(const QString& portfolio_id, const QString& symbol, const QString& sector);

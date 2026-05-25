@@ -50,13 +50,9 @@ void SessionGuard::check_pulse() {
         return;
 
     if (s.is_phase_one_session()) {
-        if (!s.authenticated || s.session_id.isEmpty())
-            return;
-        if (is_checking_)
-            return;
-
-        is_checking_ = true;
-        AuthManager::instance().phase_one_current_session([this](bool) { is_checking_ = false; });
+        // Phase-one server authority owns idle timeout semantics. Polling the
+        // server here would refresh last_activity/expires_at on every tick and
+        // keep an otherwise idle desktop session alive indefinitely.
         return;
     }
     if (!s.authenticated || s.api_key.isEmpty())

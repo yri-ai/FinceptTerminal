@@ -120,6 +120,7 @@ void PortfolioScreen::load_selected_summary(bool preserve_current_view) {
 
 void PortfolioScreen::run_portfolio_mutation(PendingMutation mutation, const std::function<void()>& action) {
     const QString session_id_before = fincept::multiuser::PhaseOneClientTransport::instance().session_id();
+    last_seen_session_id_ = session_id_before;
     pending_mutation_ = mutation;
     pending_mutation_succeeded_ = false;
     command_bar_->set_refreshing(true);

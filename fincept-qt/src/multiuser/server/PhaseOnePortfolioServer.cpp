@@ -30,7 +30,7 @@ PhaseOneHoldingRecord to_record(const fincept::portfolio::PortfolioAsset& asset)
     record.id = asset.id;
     record.portfolio_id = asset.portfolio_id;
     record.symbol = asset.symbol;
-    record.name = asset.symbol;
+    record.name = asset.name;
     record.shares = asset.quantity;
     record.avg_cost = asset.avg_buy_price;
     record.active = true;
@@ -183,7 +183,7 @@ fincept::Result<PhaseOneHoldingRecord> PhaseOnePortfolioServer::create_holding(
         return fincept::Result<PhaseOneHoldingRecord>::err("portfolio_not_found");
     }
 
-    const auto create = portfolio_repository_->add_asset(request.portfolio_id, request.symbol, request.shares,
+    const auto create = portfolio_repository_->add_asset(request.portfolio_id, request.symbol, request.name, request.shares,
                                                          request.avg_cost, request.acquired_at, request.sector,
                                                          request.broker_symbol, request.exchange);
     if (create.is_err()) {

@@ -85,8 +85,8 @@ class PhaseOneMigrationsTest : public QObject {
         fincept::PhaseOneMigrationRegistry::register_all();
 
         const auto& migrations = fincept::MigrationRunner::all_migrations();
-        QCOMPARE(migrations.size(), 32);
-        for (int version = 1; version <= 32; ++version)
+        QCOMPARE(migrations.size(), 33);
+        for (int version = 1; version <= 33; ++version)
             QCOMPARE(count_migration_version(version), 1);
     }
 
@@ -97,7 +97,7 @@ class PhaseOneMigrationsTest : public QObject {
 
         fincept::MigrationRunner runner(db.db());
         QVERIFY2(runner.run().is_ok(), "expected migration runner to succeed");
-        QCOMPARE(runner.current_version(), 32);
+        QCOMPARE(runner.current_version(), 33);
 
         QVERIFY(sqlite_object_exists(db.db(), "table", "users"));
         QVERIFY(sqlite_object_exists(db.db(), "table", "sessions"));

@@ -262,7 +262,7 @@ void PortfolioService::add_asset(const QString& portfolio_id, const QString& sym
 
     // Sector left empty here — SectorResolver fills it asynchronously after
     // the asset lands in the DB. Broker fields pass through verbatim.
-    auto r = repo.add_asset(portfolio_id, symbol, qty, price, date, /*sector=*/QString(),
+    auto r = repo.add_asset(portfolio_id, symbol, symbol, qty, price, date, /*sector=*/QString(),
                             broker_symbol, exchange);
     if (r.is_err()) {
         LOG_ERROR("PortfolioSvc", "Failed to add asset: " + QString::fromStdString(r.error()));

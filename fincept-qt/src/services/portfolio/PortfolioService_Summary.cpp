@@ -80,7 +80,7 @@ void PortfolioService::load_summary(const QString& portfolio_id) {
                         QVector<portfolio::PortfolioAsset> assets;
                         assets.reserve(parsed.holdings.size());
                         for (const auto& record : parsed.holdings) {
-                            assets.append({record.id, record.portfolio_id, record.symbol, record.shares, record.avg_cost,
+                            assets.append({record.id, record.portfolio_id, record.symbol, record.name, record.shares, record.avg_cost,
                                            record.added_at, record.updated_at, record.sector, record.broker_symbol,
                                            record.exchange});
                         }

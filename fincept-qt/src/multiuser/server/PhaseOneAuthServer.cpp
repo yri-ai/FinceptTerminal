@@ -95,6 +95,11 @@ fincept::Result<void> PhaseOneAuthServer::logout(const QString& session_id) {
                           QStringLiteral("failure"));
         return fincept::Result<void>::err("session_invalid");
     }
+    if (session->invalidated) {
+        write_audit_event(session->username, QStringLiteral("logout"), QStringLiteral("session:%1").arg(session_id),
+                          QStringLiteral("failure"));
+        return fincept::Result<void>::err("session_revoked");
+    }
     const auto result = session_repository_->invalidate_session(session_id);
     const QString actor = session.has_value() ? session->username : QStringLiteral("anonymous");
     const QString target = QStringLiteral("session:%1").arg(session_id);

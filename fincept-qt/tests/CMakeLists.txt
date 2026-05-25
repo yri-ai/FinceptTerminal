@@ -98,6 +98,7 @@ set(PHASE1_MIGRATION_TEST_SUPPORT_SOURCES
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v030_max_tool_rounds.cpp"
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v031_rss_feeds.cpp"
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v032_multiuser_phase_one.cpp"
+    "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v033_portfolio_asset_names.cpp"
     "${PROJECT_SOURCE_DIR}/src/app/PhaseOneMigrationRegistry.cpp"
 )
 
@@ -170,6 +171,7 @@ set(PHASE1_SERVER_RUNTIME_TEST_SUPPORT_SOURCES
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v030_max_tool_rounds.cpp"
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v031_rss_feeds.cpp"
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v032_multiuser_phase_one.cpp"
+    "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v033_portfolio_asset_names.cpp"
     "${PROJECT_SOURCE_DIR}/src/multiuser/server/PhaseOneServerRuntime.cpp"
     "${PROJECT_SOURCE_DIR}/src/multiuser/server/PhaseOneAuthServer.cpp"
     "${PROJECT_SOURCE_DIR}/src/multiuser/server/PhaseOnePasswordHasher.cpp"
@@ -226,6 +228,7 @@ set(PHASE1_SERVER_TEST_SUPPORT_SOURCES
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v030_max_tool_rounds.cpp"
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v031_rss_feeds.cpp"
     "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v032_multiuser_phase_one.cpp"
+    "${PROJECT_SOURCE_DIR}/src/storage/sqlite/migrations/v033_portfolio_asset_names.cpp"
     "${PROJECT_SOURCE_DIR}/src/app/PhaseOneMigrationRegistry.cpp"
     "${PROJECT_SOURCE_DIR}/src/multiuser/server/PhaseOneAuthServer.cpp"
     "${PROJECT_SOURCE_DIR}/src/multiuser/server/PhaseOnePasswordHasher.cpp"

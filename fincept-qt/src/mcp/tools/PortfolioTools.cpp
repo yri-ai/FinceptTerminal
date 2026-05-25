@@ -4,12 +4,21 @@
 #include "mcp/tools/PortfolioTools.h"
 
 #include "core/logging/Logger.h"
+#include "multiuser/client/PhaseOneEndpointProvider.h"
 #include "storage/repositories/PortfolioHoldingsRepository.h"
 #include "storage/repositories/PortfolioRepository.h"
 
 namespace fincept::mcp::tools {
 
 static constexpr const char* TAG = "PortfolioTools";
+
+bool phase_one_server_authority_enabled() {
+    return fincept::multiuser::PhaseOneEndpointProvider::instance().resolve().ok;
+}
+
+ToolResult connected_mode_not_supported() {
+    return ToolResult::fail("Portfolio MCP tools are unavailable while phase-one server authority is enabled.");
+}
 
 std::vector<ToolDef> get_portfolio_tools() {
     std::vector<ToolDef> tools;
@@ -25,6 +34,8 @@ std::vector<ToolDef> get_portfolio_tools() {
         t.description = "Get all active portfolio holdings (symbol, shares, avg cost).";
         t.category = "portfolio";
         t.handler = [](const QJsonObject&) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             auto result = PortfolioHoldingsRepository::instance().get_active();
             if (result.is_err())
                 return ToolResult::fail("Failed to load holdings: " + QString::fromStdString(result.error()));
@@ -57,6 +68,8 @@ std::vector<ToolDef> get_portfolio_tools() {
                         {"name", QJsonObject{{"type", "string"}, {"description", "Company/asset name (optional)"}}}};
         t.input_schema.required = {"symbol", "shares", "avg_cost"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString symbol = args["symbol"].toString().trimmed().toUpper();
             double shares = args["shares"].toDouble(0.0);
             double avg_cost = args["avg_cost"].toDouble(0.0);
@@ -90,6 +103,8 @@ std::vector<ToolDef> get_portfolio_tools() {
                         {"avg_cost", QJsonObject{{"type", "number"}, {"description", "Updated average cost"}}}};
         t.input_schema.required = {"id", "shares", "avg_cost"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             int id = args["id"].toInt(-1);
             double shares = args["shares"].toDouble(0.0);
             double avg_cost = args["avg_cost"].toDouble(0.0);
@@ -117,6 +132,8 @@ std::vector<ToolDef> get_portfolio_tools() {
             QJsonObject{{"id", QJsonObject{{"type", "integer"}, {"description", "Holding ID"}}}};
         t.input_schema.required = {"id"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             int id = args["id"].toInt(-1);
             if (id < 0)
                 return ToolResult::fail("Missing or invalid 'id'");
@@ -141,6 +158,8 @@ std::vector<ToolDef> get_portfolio_tools() {
         t.description = "List all named investment portfolios.";
         t.category = "portfolio";
         t.handler = [](const QJsonObject&) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             auto r = PortfolioRepository::instance().list_portfolios();
             if (r.is_err())
                 return ToolResult::fail("Failed to list portfolios: " + QString::fromStdString(r.error()));
@@ -170,6 +189,8 @@ std::vector<ToolDef> get_portfolio_tools() {
             QJsonObject{{"portfolio_id", QJsonObject{{"type", "string"}, {"description", "Portfolio ID"}}}};
         t.input_schema.required = {"portfolio_id"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString id = args["portfolio_id"].toString().trimmed();
             if (id.isEmpty())
                 return ToolResult::fail("Missing 'portfolio_id'");
@@ -203,6 +224,8 @@ std::vector<ToolDef> get_portfolio_tools() {
                         {"description", QJsonObject{{"type", "string"}, {"description", "Optional description"}}}};
         t.input_schema.required = {"name", "owner"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString name = args["name"].toString().trimmed();
             QString owner = args["owner"].toString().trimmed();
             if (name.isEmpty() || owner.isEmpty())
@@ -233,6 +256,8 @@ std::vector<ToolDef> get_portfolio_tools() {
             QJsonObject{{"portfolio_id", QJsonObject{{"type", "string"}, {"description", "Portfolio ID"}}}};
         t.input_schema.required = {"portfolio_id"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString id = args["portfolio_id"].toString().trimmed();
             if (id.isEmpty())
                 return ToolResult::fail("Missing 'portfolio_id'");
@@ -257,6 +282,8 @@ std::vector<ToolDef> get_portfolio_tools() {
             QJsonObject{{"portfolio_id", QJsonObject{{"type", "string"}, {"description", "Portfolio ID"}}}};
         t.input_schema.required = {"portfolio_id"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString id = args["portfolio_id"].toString().trimmed();
             if (id.isEmpty())
                 return ToolResult::fail("Missing 'portfolio_id'");
@@ -269,6 +296,7 @@ std::vector<ToolDef> get_portfolio_tools() {
             for (const auto& a : r.value()) {
                 arr.append(QJsonObject{{"id", a.id},
                                        {"symbol", a.symbol},
+                                       {"name", a.name},
                                        {"quantity", a.quantity},
                                        {"avg_buy_price", a.avg_buy_price},
                                        {"first_purchase_date", a.first_purchase_date},
@@ -293,6 +321,8 @@ std::vector<ToolDef> get_portfolio_tools() {
             {"date", QJsonObject{{"type", "string"}, {"description", "Purchase date YYYY-MM-DD (optional)"}}}};
         t.input_schema.required = {"portfolio_id", "symbol", "quantity", "price"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString portfolio_id = args["portfolio_id"].toString().trimmed();
             QString symbol = args["symbol"].toString().trimmed().toUpper();
             double quantity = args["quantity"].toDouble(0.0);
@@ -302,7 +332,7 @@ std::vector<ToolDef> get_portfolio_tools() {
             if (portfolio_id.isEmpty() || symbol.isEmpty() || quantity <= 0 || price <= 0)
                 return ToolResult::fail("Missing or invalid: portfolio_id, symbol, quantity (>0), price (>0)");
 
-            auto r = PortfolioRepository::instance().add_asset(portfolio_id, symbol, quantity, price, date);
+            auto r = PortfolioRepository::instance().add_asset(portfolio_id, symbol, symbol, quantity, price, date);
             if (r.is_err())
                 return ToolResult::fail("Failed to add asset: " + QString::fromStdString(r.error()));
 
@@ -327,6 +357,8 @@ std::vector<ToolDef> get_portfolio_tools() {
                         {"symbol", QJsonObject{{"type", "string"}, {"description", "Ticker symbol to remove"}}}};
         t.input_schema.required = {"portfolio_id", "symbol"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString portfolio_id = args["portfolio_id"].toString().trimmed();
             QString symbol = args["symbol"].toString().trimmed().toUpper();
             if (portfolio_id.isEmpty() || symbol.isEmpty())
@@ -352,6 +384,8 @@ std::vector<ToolDef> get_portfolio_tools() {
                         {"limit", QJsonObject{{"type", "integer"}, {"description", "Max rows (default: 50)"}}}};
         t.input_schema.required = {"portfolio_id"};
         t.handler = [](const QJsonObject& args) -> ToolResult {
+            if (phase_one_server_authority_enabled())
+                return connected_mode_not_supported();
             QString id = args["portfolio_id"].toString().trimmed();
             if (id.isEmpty())
                 return ToolResult::fail("Missing 'portfolio_id'");
