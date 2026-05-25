@@ -395,6 +395,13 @@ void PortfolioService::sell_asset(const QString& portfolio_id, const QString& sy
 // ── Transactions ─────────────────────────────────────────────────────────────
 
 void PortfolioService::load_transactions(const QString& portfolio_id, int limit) {
+    if (uses_phase_one_server_authority()) {
+        Q_UNUSED(portfolio_id)
+        Q_UNUSED(limit)
+        emit transactions_loaded({});
+        return;
+    }
+
     auto r = PortfolioRepository::instance().get_transactions(portfolio_id, limit);
     if (r.is_ok()) {
         emit transactions_loaded(r.value());

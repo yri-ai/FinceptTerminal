@@ -182,6 +182,11 @@ void PortfolioScreen::build_ui() {
     connect(command_bar_, &PortfolioCommandBar::export_csv_requested, this, [this]() {
         if (selected_id_.isEmpty())
             return;
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("CSV export is not available while this portfolio workspace is server-authoritative."));
+            return;
+        }
         QString path = QFileDialog::getSaveFileName(this, tr("Export CSV"), "portfolio.csv", tr("CSV Files (*.csv)"));
         if (!path.isEmpty()) {
             services::PortfolioService::instance().export_csv(selected_id_, path);
@@ -191,6 +196,11 @@ void PortfolioScreen::build_ui() {
     connect(command_bar_, &PortfolioCommandBar::export_json_requested, this, [this]() {
         if (selected_id_.isEmpty())
             return;
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("JSON export is not available while this portfolio workspace is server-authoritative."));
+            return;
+        }
         QString path = QFileDialog::getSaveFileName(this, tr("Export JSON"), "portfolio.json", tr("JSON Files (*.json)"));
         if (!path.isEmpty()) {
             services::PortfolioService::instance().export_json(selected_id_, path);
