@@ -381,7 +381,14 @@ QWidget* PortfolioScreen::build_empty_state() {
                                        "of 12 major equities."),
                                     ui::colors::POSITIVE(), content,
                                     &empty_demo_card_.title, &empty_demo_card_.subtitle);
-    connect(demo_card, &QPushButton::clicked, this, [this]() { load_demo_portfolio(); });
+    connect(demo_card, &QPushButton::clicked, this, [this]() {
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("Demo portfolio loading is disabled while this workspace is server-authoritative."));
+            return;
+        }
+        load_demo_portfolio();
+    });
 
     card_row->addWidget(create_card);
     card_row->addWidget(import_card);

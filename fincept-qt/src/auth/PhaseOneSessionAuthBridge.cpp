@@ -1,5 +1,7 @@
 #include "auth/PhaseOneSessionAuthBridge.h"
 
+#include "multiuser/client/PhaseOneEndpointProvider.h"
+
 namespace fincept::auth {
 
 bool PhaseOneSessionAuthBridge::should_restore_startup_auth(const QString& persisted_session_json,
@@ -17,6 +19,8 @@ QString PhaseOneSessionAuthBridge::resolve_fincept_provider_api_key(const Sessio
                                                                     const QString& persisted_owner) {
     if (session.has_hosted_api_key())
         return session.api_key;
+    if (!session.authenticated && fincept::multiuser::PhaseOneEndpointProvider::instance().resolve().ok)
+        return {};
     if (session.authenticated) {
         if (!session.username.trimmed().isEmpty() &&
             session.username.trimmed().compare(persisted_owner.trimmed(), Qt::CaseInsensitive) == 0) {

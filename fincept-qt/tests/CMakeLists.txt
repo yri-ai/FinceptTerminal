@@ -330,6 +330,11 @@ fincept_add_phase_one_test(fincept_auth_session_ui_tests
     SOURCES "${PROJECT_SOURCE_DIR}/tests/auth/test_phase_one_auth_session_ui.cpp"
     EXTRA_SOURCES
         "${PROJECT_SOURCE_DIR}/src/auth/PhaseOneSessionAuthBridge.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/config/AppConfig.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/config/AppPaths.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/config/ProfileManager.cpp"
+        "${PROJECT_SOURCE_DIR}/src/core/logging/Logger.cpp"
+        "${PROJECT_SOURCE_DIR}/src/multiuser/client/PhaseOneEndpointProvider.cpp"
         "${PROJECT_SOURCE_DIR}/src/multiuser/client/PhaseOneSessionStateGuard.cpp"
     LINK_LIBS Qt6::Widgets Qt6::Network Qt6::Sql
 )
