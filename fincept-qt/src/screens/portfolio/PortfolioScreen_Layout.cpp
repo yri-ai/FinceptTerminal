@@ -63,6 +63,7 @@ void PortfolioScreen::build_ui() {
 
     connect(command_bar_, &PortfolioCommandBar::portfolio_selected, this, &PortfolioScreen::on_portfolio_selected);
     connect(command_bar_, &PortfolioCommandBar::create_requested, this, &PortfolioScreen::on_create_requested);
+    connect(command_bar_, &PortfolioCommandBar::edit_requested, this, &PortfolioScreen::on_edit_requested);
     connect(command_bar_, &PortfolioCommandBar::delete_requested, this, &PortfolioScreen::on_delete_requested);
     connect(command_bar_, &PortfolioCommandBar::refresh_requested, this, &PortfolioScreen::request_refresh);
     connect(command_bar_, &PortfolioCommandBar::refresh_interval_changed, this,

@@ -52,8 +52,7 @@ void PhaseOneHttpHelpersTest::formats_canonical_json_success_response() {
 
     const QJsonDocument json = QJsonDocument::fromJson(response.body);
     QVERIFY(json.isObject());
-    QCOMPARE(json.object().value("ok").toBool(), true);
-    QCOMPARE(json.object().value("data").toObject().value("session_id").toString(), QString("session-123"));
+    QCOMPARE(json.object().value("session_id").toString(), QString("session-123"));
 }
 
 void PhaseOneHttpHelpersTest::formats_canonical_json_error_response() {
@@ -64,7 +63,6 @@ void PhaseOneHttpHelpersTest::formats_canonical_json_error_response() {
 
     const QJsonDocument json = QJsonDocument::fromJson(response.body);
     QVERIFY(json.isObject());
-    QCOMPARE(json.object().value("ok").toBool(), false);
     QCOMPARE(json.object().value("error_code").toString(), QString("session_expired"));
     QCOMPARE(json.object().value("message").toString(), QString("expired"));
 }

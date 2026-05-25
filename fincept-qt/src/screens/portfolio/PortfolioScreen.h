@@ -71,6 +71,7 @@ class PortfolioScreen : public QWidget, public IStatefulScreen, public IGroupLin
     void on_asset_changed(QString portfolio_id);
     void on_portfolio_mutation_failed(QString error);
     void on_create_requested();
+    void on_edit_requested(const QString& id);
     void on_delete_requested(const QString& id);
     void on_detail_view_selected(portfolio::DetailView view);
     void on_refresh_interval_changed(int ms);
@@ -83,6 +84,7 @@ class PortfolioScreen : public QWidget, public IStatefulScreen, public IGroupLin
     enum class PendingMutation {
         None,
         CreatePortfolio,
+        UpdatePortfolio,
         DeletePortfolio,
         AddAsset,
         SellAsset,

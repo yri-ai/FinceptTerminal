@@ -149,6 +149,10 @@ void PortfolioScreen::run_portfolio_mutation(PendingMutation mutation, const std
         title = tr("Create Portfolio Rejected");
         message = tr("The server did not accept the new portfolio. No changes were applied.");
         break;
+    case PendingMutation::UpdatePortfolio:
+        title = tr("Update Portfolio Rejected");
+        message = tr("The server did not accept the portfolio changes. Existing metadata was preserved.");
+        break;
     case PendingMutation::DeletePortfolio:
         title = tr("Delete Portfolio Rejected");
         message = tr("The server did not accept the delete request. The portfolio remains unchanged.");
@@ -201,6 +205,10 @@ void PortfolioScreen::on_portfolio_mutation_failed(QString error) {
     case PendingMutation::CreatePortfolio:
         title = tr("Create Portfolio Rejected");
         message = tr("The server did not accept the new portfolio. No changes were applied.");
+        break;
+    case PendingMutation::UpdatePortfolio:
+        title = tr("Update Portfolio Rejected");
+        message = tr("The server did not accept the portfolio changes. Existing metadata was preserved.");
         break;
     case PendingMutation::DeletePortfolio:
         title = tr("Delete Portfolio Rejected");
@@ -399,7 +407,7 @@ void PortfolioScreen::on_snapshots_loaded(QString portfolio_id, QVector<portfoli
 }
 
 void PortfolioScreen::on_portfolio_created(portfolio::Portfolio portfolio) {
-    if (pending_mutation_ == PendingMutation::CreatePortfolio) {
+    if (pending_mutation_ == PendingMutation::CreatePortfolio || pending_mutation_ == PendingMutation::UpdatePortfolio) {
         pending_mutation_succeeded_ = true;
         pending_mutation_ = PendingMutation::None;
     }
@@ -409,8 +417,9 @@ void PortfolioScreen::on_portfolio_created(portfolio::Portfolio portfolio) {
     // Append it immediately so the selector label and status bar show the correct
     // name without waiting for the reload round-trip.
     bool already_present = false;
-    for (const auto& p : portfolios_) {
+    for (auto& p : portfolios_) {
         if (p.id == portfolio.id) {
+            p = portfolio;
             already_present = true;
             break;
         }
@@ -449,7 +458,23 @@ void PortfolioScreen::on_create_requested() {
     CreatePortfolioDialog dlg(this);
     if (dlg.exec() == QDialog::Accepted) {
         run_portfolio_mutation(PendingMutation::CreatePortfolio, [this, &dlg]() {
-            services::PortfolioService::instance().create_portfolio(dlg.name(), dlg.owner(), dlg.currency());
+            services::PortfolioService::instance().create_portfolio(dlg.name(), dlg.owner(), dlg.currency(), dlg.description());
+        });
+    }
+}
+
+void PortfolioScreen::on_edit_requested(const QString& id) {
+    const auto it = std::find_if(portfolios_.begin(), portfolios_.end(), [&id](const auto& portfolio) {
+        return portfolio.id == id;
+    });
+    if (it == portfolios_.end())
+        return;
+
+    CreatePortfolioDialog dlg(this, tr("Edit Portfolio"), tr("SAVE"), it->name, it->owner, it->currency, it->description,
+                              tr("Connected changes stay visible here after the server accepts them."));
+    if (dlg.exec() == QDialog::Accepted) {
+        run_portfolio_mutation(PendingMutation::UpdatePortfolio, [this, id, &dlg]() {
+            services::PortfolioService::instance().update_portfolio(id, dlg.name(), dlg.owner(), dlg.currency(), dlg.description());
         });
     }
 }

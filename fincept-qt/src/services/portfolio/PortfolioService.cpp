@@ -157,6 +157,45 @@ void PortfolioService::create_portfolio(const QString& name, const QString& owne
     }
 }
 
+void PortfolioService::update_portfolio(const QString& id, const QString& name, const QString& owner,
+                                        const QString& currency, const QString& description) {
+    if (uses_phase_one_server_authority()) {
+        fincept::multiuser::PhaseOneUpdatePortfolioRequest request;
+        request.id = id;
+        request.name = name;
+        request.owner = owner;
+        request.currency = currency;
+        request.description = description;
+        QPointer<PortfolioService> self = this;
+        fincept::multiuser::PhaseOnePortfolioApi::instance().update_portfolio(
+            request, [self](fincept::auth::ApiResponse response) {
+                if (!self)
+                    return;
+                if (!response.success) {
+                    emit self->portfolio_mutation_failed(
+                        portfolio_response_error(response, QStringLiteral("Failed to update connected portfolio.")));
+                    return;
+                }
+
+                const auto record = fincept::multiuser::PhaseOnePortfolioRecord::from_json(
+                    response.data.value(QStringLiteral("portfolio")).toObject());
+                emit self->portfolio_updated(portfolio_from_record(record));
+                self->load_portfolios();
+            });
+        return;
+    }
+
+    auto r = PortfolioRepository::instance().update_portfolio(id, name, owner, currency, description);
+    if (r.is_ok()) {
+        auto p = PortfolioRepository::instance().get_portfolio(id);
+        if (p.is_ok())
+            emit portfolio_updated(p.value());
+        load_portfolios();
+    } else {
+        LOG_ERROR("PortfolioSvc", "Failed to update portfolio: " + QString::fromStdString(r.error()));
+    }
+}
+
 void PortfolioService::delete_portfolio(const QString& id) {
     if (uses_phase_one_server_authority()) {
         QPointer<PortfolioService> self = this;

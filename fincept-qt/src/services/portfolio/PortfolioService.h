@@ -29,6 +29,8 @@ class PortfolioService : public QObject {
     void create_portfolio(const QString& name, const QString& owner, const QString& currency,
                           const QString& description = {},
                           const QString& broker_account_id = {});
+    void update_portfolio(const QString& id, const QString& name, const QString& owner, const QString& currency,
+                          const QString& description = {});
     void delete_portfolio(const QString& id);
 
     // ── Summary (assets + live quotes) ───────────────────────────────────────
@@ -104,6 +106,7 @@ class PortfolioService : public QObject {
     void portfolios_loaded(QVector<portfolio::Portfolio> portfolios);
     void portfolios_failed(QString error);
     void portfolio_created(portfolio::Portfolio portfolio);
+    void portfolio_updated(portfolio::Portfolio portfolio);
     void portfolio_deleted(QString id);
 
     void summary_loaded(portfolio::PortfolioSummary summary);

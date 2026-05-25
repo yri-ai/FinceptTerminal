@@ -1,5 +1,7 @@
 #pragma once
 
+#include "multiuser/contracts/PhaseOneAuthTypes.h"
+
 #include <QString>
 #include <QStringList>
 
@@ -13,7 +15,7 @@ enum class PhaseOneProcessMode {
 struct PhaseOneServerCliOptions {
     PhaseOneProcessMode mode = PhaseOneProcessMode::Client;
     QString host;
-    quint16 port = 45450;
+    quint16 port = multiuser::kPhaseOneDefaultPort;
     QString db_path;
     QString profile = QStringLiteral("default");
     QStringList client_passthrough_args;

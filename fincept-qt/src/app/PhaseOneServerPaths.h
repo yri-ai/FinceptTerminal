@@ -2,12 +2,13 @@
 
 #include "app/PhaseOneServerCli.h"
 #include "core/config/AppPaths.h"
+#include "multiuser/contracts/PhaseOneAuthTypes.h"
 
 namespace fincept {
 
 struct PhaseOneResolvedServerOptions {
     QString host;
-    quint16 port = 45450;
+    quint16 port = multiuser::kPhaseOneDefaultPort;
     QString db_path;
     QString server_root;
     QString requested_profile;

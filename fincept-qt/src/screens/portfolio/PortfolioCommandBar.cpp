@@ -198,6 +198,23 @@ void PortfolioCommandBar::build_portfolio_selector() {
     });
     btn_row->addWidget(create_btn_);
 
+    edit_btn_ = new QPushButton(tr("EDIT"));
+    edit_btn_->setFixedHeight(24);
+    edit_btn_->setCursor(Qt::PointingHandCursor);
+    edit_btn_->setStyleSheet(QString("QPushButton { background:transparent; color:%1; border:1px solid %2;"
+                                     "  font-size:10px; font-weight:700; letter-spacing:0.5px; }"
+                                     "QPushButton:hover { background:%3; color:%4; }")
+                                 .arg(ui::colors::TEXT_SECONDARY(), ui::colors::BORDER_MED(), ui::colors::BG_HOVER(),
+                                      ui::colors::TEXT_PRIMARY()));
+    connect(edit_btn_, &QPushButton::clicked, this, [this]() {
+        if (!selected_id_.isEmpty()) {
+            dropdown_->hide();
+            dropdown_visible_ = false;
+            emit edit_requested(selected_id_);
+        }
+    });
+    btn_row->addWidget(edit_btn_);
+
     delete_btn_ = new QPushButton(tr("DELETE"));
     delete_btn_->setFixedHeight(24);
     delete_btn_->setCursor(Qt::PointingHandCursor);
@@ -479,6 +496,10 @@ void PortfolioCommandBar::set_has_selection(bool has) {
     trade_cluster_->setVisible(has);
     tabs_container_->setVisible(has);
     tools_cluster_->setVisible(has);
+    if (edit_btn_)
+        edit_btn_->setEnabled(has);
+    if (delete_btn_)
+        delete_btn_->setEnabled(has);
 }
 
 void PortfolioCommandBar::set_has_portfolios(bool has) {
@@ -489,6 +510,10 @@ void PortfolioCommandBar::set_has_portfolios(bool has) {
     if (!has) {
         selector_btn_->setText(tr("NO PORTFOLIOS \u2014 CREATE ONE  \u25BE"));
     }
+    if (edit_btn_)
+        edit_btn_->setEnabled(false);
+    if (delete_btn_)
+        delete_btn_->setEnabled(false);
 }
 
 void PortfolioCommandBar::set_refresh_interval(int ms) {
@@ -519,6 +544,7 @@ void PortfolioCommandBar::retranslateUi() {
 
     if (search_edit_)   search_edit_->setPlaceholderText(tr("Search portfolios..."));
     if (create_btn_)    create_btn_->setText(tr("+ CREATE NEW"));
+    if (edit_btn_)      edit_btn_->setText(tr("EDIT"));
     if (delete_btn_)    delete_btn_->setText(tr("DELETE"));
     if (refresh_btn_)   refresh_btn_->setToolTip(tr("Refresh portfolio data"));
     if (interval_cb_)   interval_cb_->setToolTip(tr("Auto-refresh interval"));

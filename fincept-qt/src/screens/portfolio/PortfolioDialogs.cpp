@@ -28,9 +28,18 @@ namespace fincept::screens {
 
 // ── CreatePortfolioDialog ────────────────────────────────────────────────────
 
-CreatePortfolioDialog::CreatePortfolioDialog(QWidget* parent) : QDialog(parent) {
-    setWindowTitle(tr("Create Portfolio"));
-    setFixedSize(380, 260);
+CreatePortfolioDialog::CreatePortfolioDialog(QWidget* parent, const QString& title, const QString& action_label,
+                                             const QString& initial_name, const QString& initial_owner,
+                                             const QString& initial_currency, const QString& initial_description,
+                                             const QString& initial_hint)
+    : QDialog(parent) {
+    const QString resolved_title = title.isEmpty() ? tr("Create Portfolio") : title;
+    const QString resolved_action = action_label.isEmpty() ? tr("CREATE") : action_label;
+    const QString resolved_hint = initial_hint.isEmpty()
+                                      ? tr("Connected changes stay visible here after the server accepts them.")
+                                      : initial_hint;
+    setWindowTitle(resolved_title);
+    setFixedSize(380, 320);
     setStyleSheet(QString("QDialog { background:%1; color:%2; }"
                           "QLabel { color:%3; font-size:11px; }"
                           "QLineEdit { background:%4; color:%2; border:1px solid %5;"
@@ -49,12 +58,12 @@ CreatePortfolioDialog::CreatePortfolioDialog(QWidget* parent) : QDialog(parent) 
     layout->setContentsMargins(20, 16, 20, 16);
 
     // Header
-    auto* title = new QLabel(tr("CREATE NEW PORTFOLIO"));
-    title->setStyleSheet(
+    auto* title_label = new QLabel(resolved_title.toUpper());
+    title_label->setStyleSheet(
         QString("color:%1; font-size:13px; font-weight:700; letter-spacing:1px;").arg(ui::colors::AMBER()));
-    layout->addWidget(title);
+    layout->addWidget(title_label);
 
-    auto* hint = new QLabel(tr("Connected changes stay visible here after the server accepts them."));
+    auto* hint = new QLabel(resolved_hint);
     hint->setWordWrap(true);
     hint->setStyleSheet(QString("color:%1; font-size:10px;").arg(ui::colors::TEXT_TERTIARY()));
     layout->addWidget(hint);
@@ -66,10 +75,12 @@ CreatePortfolioDialog::CreatePortfolioDialog(QWidget* parent) : QDialog(parent) 
 
     name_edit_ = new QLineEdit;
     name_edit_->setPlaceholderText(tr("My Portfolio"));
+    name_edit_->setText(initial_name);
     form->addRow(tr("Name:"), name_edit_);
 
     owner_edit_ = new QLineEdit;
     owner_edit_->setPlaceholderText(tr("Your name"));
+    owner_edit_->setText(initial_owner);
     form->addRow(tr("Owner:"), owner_edit_);
 
     currency_cb_ = new QComboBox;
@@ -79,7 +90,17 @@ CreatePortfolioDialog::CreatePortfolioDialog(QWidget* parent) : QDialog(parent) 
         "CZK", "HUF", "ILS", "AED", "SAR", "IDR", "MYR", "PHP", "VND", "NGN", "EGP", "BDT",
     };
     currency_cb_->addItems(currencies);
+    if (!initial_currency.isEmpty()) {
+        const int index = currency_cb_->findText(initial_currency);
+        if (index >= 0)
+            currency_cb_->setCurrentIndex(index);
+    }
     form->addRow(tr("Currency:"), currency_cb_);
+
+    description_edit_ = new QLineEdit;
+    description_edit_->setPlaceholderText(tr("Optional description"));
+    description_edit_->setText(initial_description);
+    form->addRow(tr("Description:"), description_edit_);
 
     layout->addLayout(form);
     layout->addStretch();
@@ -99,7 +120,7 @@ CreatePortfolioDialog::CreatePortfolioDialog(QWidget* parent) : QDialog(parent) 
     connect(cancel_btn, &QPushButton::clicked, this, &QDialog::reject);
     btn_layout->addWidget(cancel_btn);
 
-    auto* create_btn = new QPushButton(tr("CREATE"));
+    auto* create_btn = new QPushButton(resolved_action);
     create_btn->setFixedSize(90, 30);
     create_btn->setCursor(Qt::PointingHandCursor);
     create_btn->setStyleSheet(QString("QPushButton { background:%1; color:%3; border:none;"
@@ -125,6 +146,10 @@ QString CreatePortfolioDialog::owner() const {
 }
 QString CreatePortfolioDialog::currency() const {
     return currency_cb_->currentText();
+}
+
+QString CreatePortfolioDialog::description() const {
+    return description_edit_ ? description_edit_->text().trimmed() : QString{};
 }
 
 // ── ConfirmDeleteDialog ──────────────────────────────────────────────────────

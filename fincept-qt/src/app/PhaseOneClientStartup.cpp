@@ -80,6 +80,8 @@ namespace fincept {
 
 namespace {
 
+const auto kLegacySettingsMigrationSentinel = QStringLiteral("legacy_settings_migration_complete");
+
 void initialize_datahub_and_services(QApplication& app) {
     TerminalShell::instance().initialise();
     QObject::connect(&app, &QCoreApplication::aboutToQuit,
@@ -354,10 +356,11 @@ void initialize_config_and_databases() {
     LOG_INFO("App", "Checking settings for legacy migration...");
     {
         LOG_INFO("App", "Querying settings...");
-        const auto existing = SettingsRepository::instance().get(QStringLiteral("fincept_session"));
+        const auto existing = SettingsRepository::instance().get(kLegacySettingsMigrationSentinel);
         LOG_INFO("App", "Settings query done");
         const bool new_db_empty = existing.is_err() || existing.value().isEmpty();
         if (new_db_empty) {
+            bool migration_complete = false;
             QString local_base = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
             QString old_db_path = local_base.section('/', 0, -3) + QStringLiteral("/FinceptTerminal/fincept_settings.db");
             if (!QFile::exists(old_db_path)) {
@@ -380,10 +383,17 @@ void initialize_config_and_databases() {
                             ++count;
                         }
                         LOG_INFO("App", QStringLiteral("Migrated %1 settings from legacy DB").arg(count));
+                        migration_complete = true;
                     }
                     old_db.close();
                 }
                 QSqlDatabase::removeDatabase(QStringLiteral("legacy_migration"));
+            } else {
+                migration_complete = true;
+            }
+            if (migration_complete) {
+                SettingsRepository::instance().set(kLegacySettingsMigrationSentinel, QStringLiteral("1"),
+                                                   QStringLiteral("startup"));
             }
         }
     }

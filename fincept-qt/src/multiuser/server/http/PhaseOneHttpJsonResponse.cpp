@@ -18,12 +18,11 @@ PhaseOneHttpResponse make_json_response(int status_code, const QJsonObject& obje
 } // namespace
 
 PhaseOneHttpResponse PhaseOneHttpJsonResponse::success(int status_code, const QJsonObject& payload) {
-    return make_json_response(status_code, QJsonObject{{"ok", true}, {"data", payload}});
+    return make_json_response(status_code, payload);
 }
 
 PhaseOneHttpResponse PhaseOneHttpJsonResponse::error(int status_code, const QString& error_code, const QString& message) {
-    return make_json_response(status_code,
-                              QJsonObject{{"ok", false}, {"error_code", error_code}, {"message", message}});
+    return make_json_response(status_code, QJsonObject{{"error_code", error_code}, {"message", message}});
 }
 
 } // namespace fincept::multiuser
