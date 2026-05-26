@@ -8,6 +8,8 @@ namespace fincept::multiuser {
 namespace {
 
 constexpr qsizetype kMaxRequestBytes = 1024 * 1024;
+constexpr qsizetype kInvalidContentLength = -1;
+constexpr qsizetype kOversizedContentLength = -2;
 
 QByteArray reason_phrase(int status_code) {
     switch (status_code) {
@@ -18,6 +20,7 @@ QByteArray reason_phrase(int status_code) {
     case 403: return "Forbidden";
     case 404: return "Not Found";
     case 409: return "Conflict";
+    case 413: return "Payload Too Large";
     case 500: return "Internal Server Error";
     case 501: return "Not Implemented";
     default:  return "OK";
@@ -37,8 +40,10 @@ qsizetype content_length(const QByteArray& raw_request) {
         return 0;
     bool ok = false;
     const qlonglong parsed = match.captured(1).toLongLong(&ok);
-    if (!ok || parsed < 0 || parsed > kMaxRequestBytes)
-        return -1;
+    if (!ok || parsed < 0)
+        return kInvalidContentLength;
+    if (parsed > kMaxRequestBytes)
+        return kOversizedContentLength;
     return static_cast<qsizetype>(parsed);
 }
 
@@ -138,12 +143,32 @@ void PhaseOneHttpServer::handle_socket_ready_read(QTcpSocket* socket) {
 
     socket->setProperty("phase_one_request_buffer", buffer);
 
+    const int header_end = buffer.indexOf("\r\n\r\n");
+    if (header_end >= 0) {
+        const qsizetype expected_body_length = content_length(buffer);
+        if (expected_body_length == kInvalidContentLength) {
+            PhaseOneHttpResponse response = PhaseOneHttpJsonResponse::error(
+                400, QStringLiteral("invalid_request"), QStringLiteral("Invalid Content-Length header."));
+            socket->write(serialize_response(response));
+            socket->flush();
+            socket->disconnectFromHost();
+            return;
+        }
+        if (expected_body_length == kOversizedContentLength) {
+            PhaseOneHttpResponse response = PhaseOneHttpJsonResponse::error(
+                413, QStringLiteral("request_too_large"), QStringLiteral("Request exceeds the maximum supported size."));
+            socket->write(serialize_response(response));
+            socket->flush();
+            socket->disconnectFromHost();
+            return;
+        }
+    }
+
     if (!request_is_complete(buffer))
         return;
 
-    const int header_end = buffer.indexOf("\r\n\r\n");
     const qsizetype expected_body_length = content_length(buffer);
-    const qsizetype request_size = expected_body_length < 0 ? buffer.size() : header_end + 4 + expected_body_length;
+    const qsizetype request_size = header_end + 4 + expected_body_length;
     const QByteArray request_bytes = buffer.left(request_size);
 
     const auto response = dispatch(request_bytes);
