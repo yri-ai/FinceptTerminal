@@ -67,6 +67,7 @@ class PortfolioScreen : public QWidget, public IStatefulScreen, public IGroupLin
     void on_metrics_computed(portfolio::ComputedMetrics metrics);
     void on_snapshots_loaded(QString portfolio_id, QVector<portfolio::PortfolioSnapshot> snapshots);
     void on_portfolio_created(portfolio::Portfolio portfolio);
+    void on_portfolio_updated(portfolio::Portfolio portfolio);
     void on_portfolio_deleted(QString id);
     void on_asset_changed(QString portfolio_id);
     void on_portfolio_mutation_failed(QString error);

@@ -61,7 +61,7 @@ PortfolioScreen::PortfolioScreen(QWidget* parent) : QWidget(parent) {
     connect(&svc, &services::PortfolioService::summary_error, this, &PortfolioScreen::on_summary_error);
     connect(&svc, &services::PortfolioService::metrics_computed, this, &PortfolioScreen::on_metrics_computed);
     connect(&svc, &services::PortfolioService::portfolio_created, this, &PortfolioScreen::on_portfolio_created);
-    connect(&svc, &services::PortfolioService::portfolio_updated, this, &PortfolioScreen::on_portfolio_created);
+    connect(&svc, &services::PortfolioService::portfolio_updated, this, &PortfolioScreen::on_portfolio_updated);
     connect(&svc, &services::PortfolioService::portfolio_deleted, this, &PortfolioScreen::on_portfolio_deleted);
     connect(&svc, &services::PortfolioService::asset_added, this, &PortfolioScreen::on_asset_changed);
     connect(&svc, &services::PortfolioService::asset_sold, this, &PortfolioScreen::on_asset_changed);

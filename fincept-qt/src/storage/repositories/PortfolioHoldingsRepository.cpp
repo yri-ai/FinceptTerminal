@@ -2,10 +2,6 @@
 
 namespace fincept {
 
-namespace {
-
-} // namespace
-
 PortfolioHoldingsRepository& PortfolioHoldingsRepository::instance() {
     static PortfolioHoldingsRepository s;
     return s;

@@ -431,6 +431,25 @@ void PortfolioScreen::on_portfolio_created(portfolio::Portfolio portfolio) {
     on_portfolio_selected(portfolio.id);
 }
 
+void PortfolioScreen::on_portfolio_updated(portfolio::Portfolio portfolio) {
+    if (pending_mutation_ == PendingMutation::UpdatePortfolio) {
+        pending_mutation_succeeded_ = true;
+        pending_mutation_ = PendingMutation::None;
+    }
+
+    for (auto& p : portfolios_) {
+        if (p.id == portfolio.id) {
+            p = portfolio;
+            break;
+        }
+    }
+
+    if (selected_id_ == portfolio.id) {
+        current_summary_.portfolio = portfolio;
+        status_bar_->set_portfolio_name(portfolio.name);
+    }
+}
+
 void PortfolioScreen::on_portfolio_deleted(QString id) {
     if (pending_mutation_ == PendingMutation::DeletePortfolio) {
         pending_mutation_succeeded_ = true;

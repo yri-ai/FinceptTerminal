@@ -8,6 +8,7 @@
 #include "multiuser/server/http/PhaseOneHttpServer.h"
 
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QUrlQuery>
 
 namespace fincept::multiuser {

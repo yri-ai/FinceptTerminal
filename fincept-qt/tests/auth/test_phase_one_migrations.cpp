@@ -112,9 +112,10 @@ class PhaseOneMigrationsTest : public QObject {
         QVERIFY(!query.exec("INSERT INTO users (username, password_hash, role, status) VALUES ('second-admin', 'hash', 'admin', 'active')"));
         QVERIFY(query.exec("INSERT INTO users (username, password_hash, role, status) VALUES ('disabled-admin', 'hash', 'admin', 'disabled')"));
         QVERIFY(query.exec("INSERT INTO users (username, password_hash, role, status) VALUES ('standard-user', 'hash', 'standard', 'active')"));
-        QVERIFY(query.exec("INSERT INTO sessions (session_id, user_id, expires_at, invalidated) VALUES ('session-1', 4, datetime('now', '+1 day'), 0)"));
-        QVERIFY(!query.exec("INSERT INTO sessions (session_id, user_id, expires_at, invalidated) VALUES ('session-2', 4, datetime('now', '+1 day'), 0)"));
-        QVERIFY(query.exec("INSERT INTO sessions (session_id, user_id, expires_at, invalidated) VALUES ('session-3', 4, datetime('now', '+1 day'), 1)"));
+        const int standard_user_id = query.lastInsertId().toInt();
+        QVERIFY(query.exec(QStringLiteral("INSERT INTO sessions (session_id, user_id, expires_at, invalidated) VALUES ('session-1', %1, datetime('now', '+1 day'), 0)").arg(standard_user_id)));
+        QVERIFY(!query.exec(QStringLiteral("INSERT INTO sessions (session_id, user_id, expires_at, invalidated) VALUES ('session-2', %1, datetime('now', '+1 day'), 0)").arg(standard_user_id)));
+        QVERIFY(query.exec(QStringLiteral("INSERT INTO sessions (session_id, user_id, expires_at, invalidated) VALUES ('session-3', %1, datetime('now', '+1 day'), 1)").arg(standard_user_id)));
     }
 
     void migration_runner_fails_loudly_on_incompatible_existing_schema() {

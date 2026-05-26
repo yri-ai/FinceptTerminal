@@ -7,6 +7,8 @@ namespace fincept::multiuser {
 
 namespace {
 
+constexpr qsizetype kMaxRequestBytes = 1024 * 1024;
+
 QByteArray reason_phrase(int status_code) {
     switch (status_code) {
     case 200: return "OK";
@@ -33,7 +35,11 @@ qsizetype content_length(const QByteArray& raw_request) {
     const QRegularExpressionMatch match = pattern.match(headers);
     if (!match.hasMatch())
         return 0;
-    return match.captured(1).toLongLong();
+    bool ok = false;
+    const qlonglong parsed = match.captured(1).toLongLong(&ok);
+    if (!ok || parsed < 0 || parsed > kMaxRequestBytes)
+        return -1;
+    return static_cast<qsizetype>(parsed);
 }
 
 } // namespace
@@ -110,7 +116,7 @@ QByteArray PhaseOneHttpServer::serialize_response(const PhaseOneHttpResponse& re
 void PhaseOneHttpServer::handle_new_connection() {
     while (server_.hasPendingConnections()) {
         QTcpSocket* socket = server_.nextPendingConnection();
-        QObject::connect(socket, &QTcpSocket::readyRead, socket, [this, socket]() { handle_socket_ready_read(socket); });
+        QObject::connect(socket, &QTcpSocket::readyRead, &server_, [this, socket]() { handle_socket_ready_read(socket); });
         if (socket->bytesAvailable() > 0)
             handle_socket_ready_read(socket);
         QObject::connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
@@ -120,12 +126,27 @@ void PhaseOneHttpServer::handle_new_connection() {
 void PhaseOneHttpServer::handle_socket_ready_read(QTcpSocket* socket) {
     QByteArray buffer = socket->property("phase_one_request_buffer").toByteArray();
     buffer += socket->readAll();
+
+    if (buffer.size() > kMaxRequestBytes) {
+        PhaseOneHttpResponse response = PhaseOneHttpJsonResponse::error(
+            413, QStringLiteral("request_too_large"), QStringLiteral("Request exceeds the maximum supported size."));
+        socket->write(serialize_response(response));
+        socket->flush();
+        socket->disconnectFromHost();
+        return;
+    }
+
     socket->setProperty("phase_one_request_buffer", buffer);
 
     if (!request_is_complete(buffer))
         return;
 
-    const auto response = dispatch(buffer);
+    const int header_end = buffer.indexOf("\r\n\r\n");
+    const qsizetype expected_body_length = content_length(buffer);
+    const qsizetype request_size = expected_body_length < 0 ? buffer.size() : header_end + 4 + expected_body_length;
+    const QByteArray request_bytes = buffer.left(request_size);
+
+    const auto response = dispatch(request_bytes);
     PhaseOneHttpResponse http_response;
     if (response.is_err()) {
         http_response = PhaseOneHttpJsonResponse::error(400, QStringLiteral("invalid_request"),

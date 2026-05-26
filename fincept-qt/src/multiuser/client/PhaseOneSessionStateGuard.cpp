@@ -38,7 +38,7 @@ fincept::auth::ApiResponse PhaseOneSessionStateGuard::map_response(const PhaseOn
         return {false,
                 response.body,
                 response.error_message.isEmpty() ? QStringLiteral("Phase one request failed.") : response.error_message,
-                0,
+                response.status_code,
                 response.error_code};
     }
 
