@@ -35,6 +35,7 @@ class PortfolioCommandBar : public QWidget {
   signals:
     void portfolio_selected(QString id);
     void create_requested();
+    void edit_requested(QString id);
     void delete_requested(QString id);
     void buy_requested();
     void sell_requested();
@@ -70,6 +71,7 @@ class PortfolioCommandBar : public QWidget {
     QLineEdit* search_edit_ = nullptr;
     QListWidget* portfolio_list_ = nullptr;
     QPushButton* create_btn_ = nullptr;
+    QPushButton* edit_btn_ = nullptr;
     QPushButton* delete_btn_ = nullptr;
 
     // Action buttons

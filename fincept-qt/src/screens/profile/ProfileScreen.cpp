@@ -3,6 +3,11 @@
 #include "auth/AuthManager.h"
 #include "auth/UserApi.h"
 #include "core/logging/Logger.h"
+#include "multiuser/client/PhaseOneAuditApi.h"
+#include "multiuser/client/PhaseOneUserAdminApi.h"
+#include "multiuser/contracts/PhaseOneAuditTypes.h"
+#include "multiuser/contracts/PhaseOneAuditTypes.h"
+#include "multiuser/contracts/PhaseOneUserAdminTypes.h"
 #include "ui/theme/Theme.h"
 
 #include <QApplication>
@@ -13,6 +18,7 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QMessageBox>
 #include <QScrollArea>
@@ -230,6 +236,10 @@ void ProfileScreen::on_section_changed(int index) {
         fetch_login_history();
     else if (index == 3)
         fetch_billing_data();
+    else if (index == 4) {
+        fetch_phase_one_admin_data();
+        fetch_phase_one_audit_data();
+    }
 }
 
 QWidget* ProfileScreen::build_overview() {
@@ -412,6 +422,12 @@ QWidget* ProfileScreen::build_security() {
                 "font-size:10px;font-weight:700;font-family:'Consolas',monospace;}QPushButton:hover{color:%4;}")
             .arg(ui::colors::BG_RAISED(), ui::colors::TEXT_SECONDARY(), ui::colors::BORDER_DIM(), ui::colors::TEXT_PRIMARY()));
     connect(sb, &QPushButton::clicked, this, [this, sb]() {
+        if (!auth::AuthManager::instance().has_hosted_api_key()) {
+            sec_api_key_->setText(tr("Hosted API key unavailable in this session"));
+            sb->setText(tr("SHOW"));
+            api_key_visible_ = false;
+            return;
+        }
         api_key_visible_ = !api_key_visible_;
         sb->setText(api_key_visible_ ? tr("HIDE") : tr("SHOW"));
         sec_api_key_->setText(api_key_visible_ ? auth::AuthManager::instance().session().api_key
@@ -425,6 +441,10 @@ QWidget* ProfileScreen::build_security() {
                 "font-size:10px;font-weight:700;font-family:'Consolas',monospace;}QPushButton:hover{color:%4;}")
             .arg(ui::colors::BG_RAISED(), ui::colors::TEXT_SECONDARY(), ui::colors::BORDER_DIM(), ui::colors::TEXT_PRIMARY()));
     connect(cb, &QPushButton::clicked, this, [this, cb]() {
+        if (!auth::AuthManager::instance().has_hosted_api_key()) {
+            sec_api_key_->setText(tr("Hosted API key unavailable in this session"));
+            return;
+        }
         auto key = auth::AuthManager::instance().session().api_key;
         if (!key.isEmpty()) {
             QApplication::clipboard()->setText(key);
@@ -558,6 +578,91 @@ QWidget* ProfileScreen::build_support() {
     lrl->addStretch();
     lvl->addWidget(lr);
     vl->addWidget(lp);
+
+    admin_panel_ = make_panel(tr("PHASE-ONE ADMIN"));
+    auto* admin_layout = qobject_cast<QVBoxLayout*>(admin_panel_->layout());
+
+    auto* create_row = new QWidget(this);
+    create_row->setStyleSheet("background:transparent;");
+    auto* create_layout = new QHBoxLayout(create_row);
+    create_layout->setContentsMargins(12, 10, 12, 10);
+    create_layout->setSpacing(8);
+    admin_new_user_edit_ = new QLineEdit(this);
+    admin_new_user_edit_->setPlaceholderText(tr("new username"));
+    auto* create_user_btn = new QPushButton(tr("CREATE USER"), this);
+    connect(create_user_btn, &QPushButton::clicked, this, [this]() {
+        const QString username = admin_new_user_edit_ ? admin_new_user_edit_->text().trimmed() : QString{};
+        if (username.isEmpty())
+            return;
+        multiuser::PhaseOneUserAdminApi::instance().create_user(username, [this](auth::ApiResponse r) {
+            if (!r.success) {
+                QMessageBox::warning(this, tr("Create User Failed"),
+                                     r.error.isEmpty() ? tr("The server rejected the new user.") : r.error);
+                return;
+            }
+            if (admin_new_user_edit_)
+                admin_new_user_edit_->clear();
+            fetch_phase_one_admin_data();
+            fetch_phase_one_audit_data();
+        });
+    });
+    create_layout->addWidget(admin_new_user_edit_, 1);
+    create_layout->addWidget(create_user_btn);
+    admin_layout->addWidget(create_row);
+
+    admin_users_table_ = new QTableWidget(this);
+    admin_users_table_->setColumnCount(4);
+    admin_users_table_->setHorizontalHeaderLabels({tr("USER"), tr("ROLE"), tr("STATUS"), tr("ID")});
+    admin_users_table_->horizontalHeader()->setStretchLastSection(true);
+    admin_users_table_->verticalHeader()->setVisible(false);
+    admin_users_table_->setSelectionBehavior(QAbstractItemView::SelectRows);
+    admin_users_table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    admin_layout->addWidget(admin_users_table_);
+
+    auto* user_actions = new QWidget(this);
+    user_actions->setStyleSheet("background:transparent;");
+    auto* user_actions_layout = new QHBoxLayout(user_actions);
+    user_actions_layout->setContentsMargins(12, 0, 12, 10);
+    user_actions_layout->setSpacing(8);
+    auto* set_pw_btn = new QPushButton(tr("SET INITIAL PASSWORD"), this);
+    auto* disable_btn = new QPushButton(tr("DISABLE USER"), this);
+    auto* transfer_btn = new QPushButton(tr("TRANSFER ADMIN"), this);
+    auto* refresh_admin_btn = new QPushButton(tr("REFRESH"), this);
+    connect(set_pw_btn, &QPushButton::clicked, this, &ProfileScreen::show_phase_one_set_password_dialog);
+    connect(disable_btn, &QPushButton::clicked, this, &ProfileScreen::disable_phase_one_selected_user);
+    connect(transfer_btn, &QPushButton::clicked, this, &ProfileScreen::transfer_phase_one_selected_admin);
+    connect(refresh_admin_btn, &QPushButton::clicked, this, &ProfileScreen::fetch_phase_one_admin_data);
+    user_actions_layout->addWidget(set_pw_btn);
+    user_actions_layout->addWidget(disable_btn);
+    user_actions_layout->addWidget(transfer_btn);
+    user_actions_layout->addStretch();
+    user_actions_layout->addWidget(refresh_admin_btn);
+    admin_layout->addWidget(user_actions);
+
+    auto* audit_filters = new QWidget(this);
+    audit_filters->setStyleSheet("background:transparent;");
+    auto* audit_filters_layout = new QHBoxLayout(audit_filters);
+    audit_filters_layout->setContentsMargins(12, 0, 12, 10);
+    audit_filters_layout->setSpacing(8);
+    admin_audit_user_filter_ = new QLineEdit(this);
+    admin_audit_user_filter_->setPlaceholderText(tr("filter user"));
+    admin_audit_action_filter_ = new QLineEdit(this);
+    admin_audit_action_filter_->setPlaceholderText(tr("filter action"));
+    auto* refresh_audit_btn = new QPushButton(tr("REFRESH AUDIT"), this);
+    connect(refresh_audit_btn, &QPushButton::clicked, this, &ProfileScreen::fetch_phase_one_audit_data);
+    audit_filters_layout->addWidget(admin_audit_user_filter_);
+    audit_filters_layout->addWidget(admin_audit_action_filter_);
+    audit_filters_layout->addWidget(refresh_audit_btn);
+    admin_layout->addWidget(audit_filters);
+
+    admin_audit_table_ = new QTableWidget(this);
+    admin_audit_table_->setColumnCount(5);
+    admin_audit_table_->setHorizontalHeaderLabels({tr("TIME"), tr("ACTOR"), tr("ACTION"), tr("TARGET"), tr("RESULT")});
+    admin_audit_table_->horizontalHeader()->setStretchLastSection(true);
+    admin_audit_table_->verticalHeader()->setVisible(false);
+    admin_layout->addWidget(admin_audit_table_);
+
+    vl->addWidget(admin_panel_);
     vl->addStretch();
     scroll->setWidget(page);
     return scroll;
@@ -567,6 +672,8 @@ void ProfileScreen::refresh_all() {
     const auto& s = auth::AuthManager::instance().session();
     if (!s.authenticated)
         return;
+    if (admin_panel_)
+        admin_panel_->setVisible(s.is_phase_one_session() && s.role == QStringLiteral("admin"));
     username_header_->setText(s.user_info.username.isEmpty() ? s.user_info.email : s.user_info.username);
     credits_badge_->setText(tr("CR %1").arg(s.user_info.credit_balance, 0, 'f', 2));
     plan_badge_->setText(s.account_type().toUpper());
@@ -598,9 +705,79 @@ void ProfileScreen::refresh_all() {
     sec_mfa_->setStyleSheet(QString("color:%1;font-size:13px;font-weight:700;background:transparent;%2")
                                 .arg(s.user_info.mfa_enabled ? ui::colors::POSITIVE() : ui::colors::TEXT_SECONDARY())
                                 .arg(MF));
+    if (s.has_hosted_api_key())
+        sec_api_key_->setText(api_key_visible_ ? s.api_key : QString(20, QChar(0x2022)));
+    else
+        sec_api_key_->setText(tr("Hosted API key unavailable in this session"));
     bill_plan_->setText(s.account_type().toUpper());
     bill_credits_->setText(QString::number(s.user_info.credit_balance, 'f', 2));
     // bill_support_ is populated by fetch_billing_data() from the API; leave it as-is here
+}
+
+void ProfileScreen::fetch_phase_one_admin_data() {
+    const auto& s = auth::AuthManager::instance().session();
+    if (!admin_panel_ || !admin_panel_->isVisible() || !s.is_phase_one_session() || s.role != QStringLiteral("admin"))
+        return;
+
+    multiuser::PhaseOneUserAdminApi::instance().list_users([this](auth::ApiResponse r) {
+        if (!admin_users_table_)
+            return;
+        if (!r.success) {
+            admin_users_table_->setRowCount(1);
+            admin_users_table_->setItem(0, 0, new QTableWidgetItem(tr("SERVER UNAVAILABLE")));
+            admin_users_table_->setItem(0, 1, new QTableWidgetItem(r.error.isEmpty() ? tr("Request failed") : r.error));
+            admin_users_table_->setItem(0, 2, new QTableWidgetItem(QString()));
+            admin_users_table_->setItem(0, 3, new QTableWidgetItem(QString()));
+            return;
+        }
+        const auto users = multiuser::PhaseOneUserListResponse::from_json(r.data).users;
+        admin_users_table_->setRowCount(0);
+        for (const auto& user : users) {
+            const int row = admin_users_table_->rowCount();
+            admin_users_table_->insertRow(row);
+            admin_users_table_->setItem(row, 0, new QTableWidgetItem(user.username));
+            admin_users_table_->setItem(row, 1, new QTableWidgetItem(user.role));
+            admin_users_table_->setItem(row, 2, new QTableWidgetItem(user.status));
+            admin_users_table_->setItem(row, 3, new QTableWidgetItem(QString::number(user.user_id)));
+        }
+    });
+}
+
+void ProfileScreen::fetch_phase_one_audit_data() {
+    const auto& s = auth::AuthManager::instance().session();
+    if (!admin_panel_ || !admin_panel_->isVisible() || !s.is_phase_one_session() || s.role != QStringLiteral("admin"))
+        return;
+
+    multiuser::PhaseOneAuditFilter filter;
+    if (admin_audit_user_filter_)
+        filter.user_identity = admin_audit_user_filter_->text().trimmed();
+    if (admin_audit_action_filter_)
+        filter.action_type = admin_audit_action_filter_->text().trimmed();
+
+    multiuser::PhaseOneAuditApi::instance().list_audit_events(filter, [this](auth::ApiResponse r) {
+        if (!admin_audit_table_)
+            return;
+        if (!r.success) {
+            admin_audit_table_->setRowCount(1);
+            admin_audit_table_->setItem(0, 0, new QTableWidgetItem(tr("SERVER UNAVAILABLE")));
+            admin_audit_table_->setItem(0, 1, new QTableWidgetItem(r.error.isEmpty() ? tr("Request failed") : r.error));
+            admin_audit_table_->setItem(0, 2, new QTableWidgetItem(QString()));
+            admin_audit_table_->setItem(0, 3, new QTableWidgetItem(QString()));
+            admin_audit_table_->setItem(0, 4, new QTableWidgetItem(QString()));
+            return;
+        }
+        const auto events = multiuser::PhaseOneAuditListResponse::from_json(r.data).audit_events;
+        admin_audit_table_->setRowCount(0);
+        for (const auto& event : events) {
+            const int row = admin_audit_table_->rowCount();
+            admin_audit_table_->insertRow(row);
+            admin_audit_table_->setItem(row, 0, new QTableWidgetItem(event.timestamp));
+            admin_audit_table_->setItem(row, 1, new QTableWidgetItem(event.user_identity));
+            admin_audit_table_->setItem(row, 2, new QTableWidgetItem(event.action_type));
+            admin_audit_table_->setItem(row, 3, new QTableWidgetItem(event.target));
+            admin_audit_table_->setItem(row, 4, new QTableWidgetItem(event.result_status));
+        }
+    });
 }
 
 void ProfileScreen::fetch_usage_data() {
@@ -612,6 +789,12 @@ void ProfileScreen::fetch_usage_data() {
     // immediately instead of "—" while /user/usage is in flight.
     const int rl_limit = s.user_info.rate_limit.limit;
     usg_rate_->setText(rl_limit > 0 ? QString::number(rl_limit) : QStringLiteral("—"));
+
+    if (!auth::AuthManager::instance().has_hosted_api_key()) {
+        usg_daily_table_->setRowCount(0);
+        usg_endpoint_table_->setRowCount(0);
+        return;
+    }
 
     QPointer<ProfileScreen> self = this;
     auth::UserApi::instance().get_user_usage(30, [self](auth::ApiResponse r) {
@@ -670,6 +853,12 @@ void ProfileScreen::fetch_usage_data() {
 
 void ProfileScreen::fetch_billing_data() {
     LOG_INFO("Profile", "Fetching billing data...");
+    if (!auth::AuthManager::instance().has_hosted_api_key()) {
+        bill_support_->setText(tr("UNAVAILABLE"));
+        bill_history_->setRowCount(0);
+        return;
+    }
+
     QPointer<ProfileScreen> self = this;
     auth::UserApi::instance().get_user_subscription([self](auth::ApiResponse r) {
         if (!self)
@@ -713,6 +902,11 @@ void ProfileScreen::fetch_billing_data() {
 
 void ProfileScreen::fetch_login_history() {
     LOG_INFO("Profile", "Fetching login history...");
+    if (!auth::AuthManager::instance().has_hosted_api_key()) {
+        sec_login_hist_->setRowCount(0);
+        return;
+    }
+
     QPointer<ProfileScreen> self = this;
     auth::UserApi::instance().get_login_history(20, 0, [self](auth::ApiResponse r) {
         if (!self)
@@ -734,6 +928,56 @@ void ProfileScreen::fetch_login_history() {
             self->sec_login_hist_->setItem(row, 1, new QTableWidgetItem(e["ip_address"].toString()));
             self->sec_login_hist_->setItem(row, 2, new QTableWidgetItem(e["status"].toString().toUpper()));
         }
+    });
+}
+
+void ProfileScreen::show_phase_one_set_password_dialog() {
+    if (!admin_users_table_ || admin_users_table_->currentRow() < 0)
+        return;
+    const int user_id = admin_users_table_->item(admin_users_table_->currentRow(), 3)->text().toInt();
+    bool ok = false;
+    const QString password = QInputDialog::getText(this, tr("Set Initial Password"), tr("Initial password:"),
+                                                   QLineEdit::Password, {}, &ok);
+    if (!ok || password.isEmpty())
+        return;
+    multiuser::PhaseOneUserAdminApi::instance().set_initial_password(user_id, password, [this](auth::ApiResponse r) {
+        if (!r.success) {
+            QMessageBox::warning(this, tr("Set Password Failed"),
+                                 r.error.isEmpty() ? tr("The server rejected the initial password.") : r.error);
+            return;
+        }
+        fetch_phase_one_admin_data();
+        fetch_phase_one_audit_data();
+    });
+}
+
+void ProfileScreen::disable_phase_one_selected_user() {
+    if (!admin_users_table_ || admin_users_table_->currentRow() < 0)
+        return;
+    const int user_id = admin_users_table_->item(admin_users_table_->currentRow(), 3)->text().toInt();
+    multiuser::PhaseOneUserAdminApi::instance().disable_user(user_id, [this](auth::ApiResponse r) {
+        if (!r.success) {
+            QMessageBox::warning(this, tr("Disable User Failed"),
+                                 r.error.isEmpty() ? tr("The server rejected the disable request.") : r.error);
+            return;
+        }
+        fetch_phase_one_admin_data();
+        fetch_phase_one_audit_data();
+    });
+}
+
+void ProfileScreen::transfer_phase_one_selected_admin() {
+    if (!admin_users_table_ || admin_users_table_->currentRow() < 0)
+        return;
+    const int user_id = admin_users_table_->item(admin_users_table_->currentRow(), 3)->text().toInt();
+    multiuser::PhaseOneUserAdminApi::instance().transfer_admin(user_id, [this](auth::ApiResponse r) {
+        if (!r.success) {
+            QMessageBox::warning(this, tr("Transfer Admin Failed"),
+                                 r.error.isEmpty() ? tr("The server rejected the admin transfer.") : r.error);
+            return;
+        }
+        fetch_phase_one_admin_data();
+        fetch_phase_one_audit_data();
     });
 }
 
@@ -813,6 +1057,11 @@ void ProfileScreen::show_logout_confirm() {
 }
 
 void ProfileScreen::show_regen_confirm() {
+    if (!auth::AuthManager::instance().has_hosted_api_key()) {
+        QMessageBox::information(this, tr("Hosted API Key"), tr("Hosted API keys are unavailable in this session."));
+        return;
+    }
+
     if (QMessageBox::warning(this, tr("Regenerate API Key"), tr("Your current API key will be invalidated. Continue?"),
                              QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes) {
         auth::UserApi::instance().regenerate_api_key([this](auth::ApiResponse r) {

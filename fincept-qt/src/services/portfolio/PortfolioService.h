@@ -29,6 +29,8 @@ class PortfolioService : public QObject {
     void create_portfolio(const QString& name, const QString& owner, const QString& currency,
                           const QString& description = {},
                           const QString& broker_account_id = {});
+    void update_portfolio(const QString& id, const QString& name, const QString& owner, const QString& currency,
+                          const QString& description = {});
     void delete_portfolio(const QString& id);
 
     // ── Summary (assets + live quotes) ───────────────────────────────────────
@@ -102,7 +104,9 @@ class PortfolioService : public QObject {
 
   signals:
     void portfolios_loaded(QVector<portfolio::Portfolio> portfolios);
+    void portfolios_failed(QString error);
     void portfolio_created(portfolio::Portfolio portfolio);
+    void portfolio_updated(portfolio::Portfolio portfolio);
     void portfolio_deleted(QString id);
 
     void summary_loaded(portfolio::PortfolioSummary summary);
@@ -115,6 +119,7 @@ class PortfolioService : public QObject {
 
     void asset_added(QString portfolio_id);
     void asset_sold(QString portfolio_id);
+    void portfolio_mutation_failed(QString error);
 
     void export_complete(QString file_path);
     void import_complete(portfolio::ImportResult result);
@@ -141,6 +146,7 @@ class PortfolioService : public QObject {
 
   private:
     PortfolioService();
+    bool uses_phase_one_server_authority() const;
 
     void build_summary(const QString& portfolio_id, const QVector<portfolio::PortfolioAsset>& assets,
                        const portfolio::Portfolio& portfolio);

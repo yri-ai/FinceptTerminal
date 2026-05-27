@@ -21,16 +21,25 @@ namespace fincept::screens {
 class CreatePortfolioDialog : public QDialog {
     Q_OBJECT
   public:
-    explicit CreatePortfolioDialog(QWidget* parent = nullptr);
+    explicit CreatePortfolioDialog(QWidget* parent = nullptr,
+                                   const QString& title = {},
+                                   const QString& action_label = {},
+                                   const QString& initial_name = {},
+                                   const QString& initial_owner = {},
+                                   const QString& initial_currency = {},
+                                   const QString& initial_description = {},
+                                   const QString& initial_hint = {});
 
     QString name() const;
     QString owner() const;
     QString currency() const;
+    QString description() const;
 
   private:
     QLineEdit* name_edit_ = nullptr;
     QLineEdit* owner_edit_ = nullptr;
     QComboBox* currency_cb_ = nullptr;
+    QLineEdit* description_edit_ = nullptr;
 };
 
 /// Confirmation dialog for deleting a portfolio.

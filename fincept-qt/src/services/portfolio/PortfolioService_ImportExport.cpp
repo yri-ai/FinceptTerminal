@@ -230,7 +230,7 @@ void PortfolioService::import_json(const QString& file_path, portfolio::ImportMo
 
         if (type == "BUY") {
             QString hint_sector = sector_hints.value(sym.toUpper());
-            auto r = repo.add_asset(target_id, sym, qty, price, date, hint_sector);
+            auto r = repo.add_asset(target_id, sym, sym, qty, price, date, hint_sector);
             if (r.is_err()) {
                 errors.append(QString("BUY %1: %2").arg(sym, QString::fromStdString(r.error())));
                 continue;

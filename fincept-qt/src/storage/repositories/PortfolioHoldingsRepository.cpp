@@ -26,8 +26,14 @@ Result<QVector<PortfolioHolding>> PortfolioHoldingsRepository::list_all() {
                       {}, map_row);
 }
 
+Result<PortfolioHolding> PortfolioHoldingsRepository::get_by_id(int id) {
+    return query_one("SELECT id, symbol, name, shares, avg_cost, active, added_at, updated_at "
+                     "FROM portfolio_holdings WHERE id = ?",
+                     {id}, map_row);
+}
+
 Result<qint64> PortfolioHoldingsRepository::add(const QString& symbol, double shares, double avg_cost,
-                                                const QString& name) {
+                                                 const QString& name) {
     return exec_insert("INSERT INTO portfolio_holdings (symbol, name, shares, avg_cost) VALUES (?, ?, ?, ?)",
                        {symbol.toUpper(), name, shares, avg_cost});
 }

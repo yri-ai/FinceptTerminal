@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QWidget>
 
+#include <functional>
 #include <optional>
 
 class QLabel;
@@ -59,15 +60,19 @@ class PortfolioScreen : public QWidget, public IStatefulScreen, public IGroupLin
 
   private slots:
     void on_portfolios_loaded(QVector<portfolio::Portfolio> portfolios);
+    void on_portfolios_failed(QString error);
     void on_portfolio_selected(const QString& id);
     void on_summary_loaded(portfolio::PortfolioSummary summary);
     void on_summary_error(QString portfolio_id, QString error);
     void on_metrics_computed(portfolio::ComputedMetrics metrics);
     void on_snapshots_loaded(QString portfolio_id, QVector<portfolio::PortfolioSnapshot> snapshots);
     void on_portfolio_created(portfolio::Portfolio portfolio);
+    void on_portfolio_updated(portfolio::Portfolio portfolio);
     void on_portfolio_deleted(QString id);
     void on_asset_changed(QString portfolio_id);
+    void on_portfolio_mutation_failed(QString error);
     void on_create_requested();
+    void on_edit_requested(const QString& id);
     void on_delete_requested(const QString& id);
     void on_detail_view_selected(portfolio::DetailView view);
     void on_refresh_interval_changed(int ms);
@@ -77,6 +82,15 @@ class PortfolioScreen : public QWidget, public IStatefulScreen, public IGroupLin
     void on_order_panel_close();
 
   private:
+    enum class PendingMutation {
+        None,
+        CreatePortfolio,
+        UpdatePortfolio,
+        DeletePortfolio,
+        AddAsset,
+        SellAsset,
+    };
+
     void build_ui();
     void refresh_theme();
     void retranslateUi();
@@ -85,11 +99,16 @@ class PortfolioScreen : public QWidget, public IStatefulScreen, public IGroupLin
     QWidget* build_main_view();
     void update_content_state();
     void update_main_view_data();
+    void load_portfolios_for_current_session(bool reload_selected_summary = false);
+    void load_selected_summary(bool preserve_current_view);
+    void run_portfolio_mutation(PendingMutation mutation, const std::function<void()>& action);
+    void show_portfolio_message(const QString& title, const QString& message);
     void request_refresh();
     void load_demo_portfolio();
     void reposition_order_panel();
     void animate_order_panel_in();
     const portfolio::HoldingWithQuote* find_holding(const QString& symbol) const;
+    bool is_connected_mode() const;
 
     // Sub-widgets
     PortfolioCommandBar* command_bar_ = nullptr;
@@ -121,9 +140,15 @@ class PortfolioScreen : public QWidget, public IStatefulScreen, public IGroupLin
     portfolio::PortfolioSummary current_summary_;
     portfolio::ComputedMetrics current_metrics_;
     bool summary_loaded_ = false;
+    bool summary_loading_ = false;
     bool order_panel_visible_ = false;
     bool show_ffn_ = false;
     std::optional<portfolio::DetailView> active_detail_;
+    bool portfolios_load_completed_ = false;
+    bool reload_selected_summary_after_portfolios_ = false;
+    PendingMutation pending_mutation_ = PendingMutation::None;
+    bool pending_mutation_succeeded_ = false;
+    QString last_seen_session_id_;
 
     // Refresh timer (P3)
     QTimer* refresh_timer_ = nullptr;

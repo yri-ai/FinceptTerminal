@@ -77,6 +77,14 @@ class ProfileScreen : public QWidget {
     QLabel* bill_support_ = nullptr;
     QTableWidget* bill_history_ = nullptr;
 
+    // Phase-one admin support
+    QWidget* admin_panel_ = nullptr;
+    QTableWidget* admin_users_table_ = nullptr;
+    QTableWidget* admin_audit_table_ = nullptr;
+    QLineEdit* admin_new_user_edit_ = nullptr;
+    QLineEdit* admin_audit_user_filter_ = nullptr;
+    QLineEdit* admin_audit_action_filter_ = nullptr;
+
     void build_header(QVBoxLayout* root);
     void build_tab_nav(QVBoxLayout* root);
     QWidget* build_overview();
@@ -89,6 +97,8 @@ class ProfileScreen : public QWidget {
     void fetch_usage_data();
     void fetch_billing_data();
     void fetch_login_history();
+    void fetch_phase_one_admin_data();
+    void fetch_phase_one_audit_data();
 
     // Helpers
     QWidget* make_panel(const QString& title);
@@ -99,6 +109,9 @@ class ProfileScreen : public QWidget {
     void show_logout_confirm();
     void show_regen_confirm();
     void show_delete_account_dialog();
+    void show_phase_one_set_password_dialog();
+    void disable_phase_one_selected_user();
+    void transfer_phase_one_selected_admin();
 
   private slots:
     void on_section_changed(int index);

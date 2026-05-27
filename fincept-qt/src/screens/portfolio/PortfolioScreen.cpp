@@ -10,6 +10,7 @@
 #include "core/session/ScreenStateManager.h"
 #include "core/symbol/SymbolContext.h"
 #include "core/symbol/SymbolRef.h"
+#include "multiuser/client/PhaseOneClientTransport.h"
 #include "screens/portfolio/PortfolioInsightsPanel.h"
 #include "screens/portfolio/PortfolioBlotter.h"
 #include "screens/portfolio/PortfolioCommandBar.h"
@@ -55,13 +56,17 @@ PortfolioScreen::PortfolioScreen(QWidget* parent) : QWidget(parent) {
     // Connect to PortfolioService signals
     auto& svc = services::PortfolioService::instance();
     connect(&svc, &services::PortfolioService::portfolios_loaded, this, &PortfolioScreen::on_portfolios_loaded);
+    connect(&svc, &services::PortfolioService::portfolios_failed, this, &PortfolioScreen::on_portfolios_failed);
     connect(&svc, &services::PortfolioService::summary_loaded, this, &PortfolioScreen::on_summary_loaded);
     connect(&svc, &services::PortfolioService::summary_error, this, &PortfolioScreen::on_summary_error);
     connect(&svc, &services::PortfolioService::metrics_computed, this, &PortfolioScreen::on_metrics_computed);
     connect(&svc, &services::PortfolioService::portfolio_created, this, &PortfolioScreen::on_portfolio_created);
+    connect(&svc, &services::PortfolioService::portfolio_updated, this, &PortfolioScreen::on_portfolio_updated);
     connect(&svc, &services::PortfolioService::portfolio_deleted, this, &PortfolioScreen::on_portfolio_deleted);
     connect(&svc, &services::PortfolioService::asset_added, this, &PortfolioScreen::on_asset_changed);
     connect(&svc, &services::PortfolioService::asset_sold, this, &PortfolioScreen::on_asset_changed);
+    connect(&svc, &services::PortfolioService::portfolio_mutation_failed, this,
+            &PortfolioScreen::on_portfolio_mutation_failed);
     connect(&svc, &services::PortfolioService::snapshots_loaded, this, &PortfolioScreen::on_snapshots_loaded);
     connect(&svc, &services::PortfolioService::transactions_loaded, this, [this](QVector<portfolio::Transaction> txns) {
         if (txn_panel_)
@@ -124,8 +129,8 @@ PortfolioScreen::PortfolioScreen(QWidget* parent) : QWidget(parent) {
     connect(refresh_timer_, &QTimer::timeout, this, &PortfolioScreen::request_refresh);
     command_bar_->set_refresh_interval(refresh_interval_ms_);
 
-    // Load portfolios
-    svc.load_portfolios();
+    // Load portfolios for the current local or connected session.
+    load_portfolios_for_current_session();
 
     // Theme change: refresh all child component styles
     connect(&ui::ThemeManager::instance(), &ui::ThemeManager::theme_changed, this,
@@ -137,6 +142,10 @@ void PortfolioScreen::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     refresh_timer_->start();
     status_bar_->start_clock();
+
+    const QString current_session_id = fincept::multiuser::PhaseOneClientTransport::instance().session_id();
+    if (current_session_id != last_seen_session_id_)
+        load_portfolios_for_current_session(summary_loaded_);
 }
 
 void PortfolioScreen::hideEvent(QHideEvent* event) {

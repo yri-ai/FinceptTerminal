@@ -14,7 +14,7 @@ SessionGuard::SessionGuard(QObject* parent) : QObject(parent) {
 
     connect(&AuthManager::instance(), &AuthManager::auth_state_changed, this, [this]() {
         const auto& s = AuthManager::instance().session();
-        if (s.authenticated && !s.api_key.isEmpty()) {
+        if (s.authenticated && (s.is_phase_one_session() || !s.api_key.isEmpty())) {
             start();
         } else {
             stop();
@@ -42,17 +42,23 @@ void SessionGuard::stop() {
 
 void SessionGuard::check_pulse() {
     const auto& s = AuthManager::instance().session();
+    // Skip while the terminal is on the lock screen. A successful pulse would
+    // refresh server-side last_activity/expires_at and keep a locked client
+    // alive indefinitely instead of allowing the configured idle timeout to
+    // expire the session naturally.
+    if (InactivityGuard::instance().is_terminal_locked())
+        return;
+
+    if (s.is_phase_one_session()) {
+        // Phase-one server authority owns idle timeout semantics. Polling the
+        // server here would refresh last_activity/expires_at on every tick and
+        // keep an otherwise idle desktop session alive indefinitely.
+        return;
+    }
     if (!s.authenticated || s.api_key.isEmpty())
         return;
     if (is_checking_)
         return;
-    // Skip while the terminal is on the lock screen. A 401 here would force
-    // a logout-to-login-screen behind the lock UI, so when the user enters
-    // their PIN the unlock would land on the login screen instead of the
-    // dashboard. Validation will resume on the next tick after unlock.
-    if (InactivityGuard::instance().is_terminal_locked())
-        return;
-
     is_checking_ = true;
 
     AuthApi::instance().session_pulse([this](ApiResponse r) {

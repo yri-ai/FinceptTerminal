@@ -29,6 +29,7 @@ struct PortfolioAsset {
     int id = 0;
     QString portfolio_id;
     QString symbol;          // canonical: yfinance-format ("RELIANCE.NS"). Used by sparklines, replay, news, sectors.
+    QString name;
     double quantity = 0;
     double avg_buy_price = 0;
     QString first_purchase_date;

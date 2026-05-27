@@ -63,6 +63,7 @@ void PortfolioScreen::build_ui() {
 
     connect(command_bar_, &PortfolioCommandBar::portfolio_selected, this, &PortfolioScreen::on_portfolio_selected);
     connect(command_bar_, &PortfolioCommandBar::create_requested, this, &PortfolioScreen::on_create_requested);
+    connect(command_bar_, &PortfolioCommandBar::edit_requested, this, &PortfolioScreen::on_edit_requested);
     connect(command_bar_, &PortfolioCommandBar::delete_requested, this, &PortfolioScreen::on_delete_requested);
     connect(command_bar_, &PortfolioCommandBar::refresh_requested, this, &PortfolioScreen::request_refresh);
     connect(command_bar_, &PortfolioCommandBar::refresh_interval_changed, this,
@@ -71,6 +72,11 @@ void PortfolioScreen::build_ui() {
     connect(command_bar_, &PortfolioCommandBar::buy_requested, this, &PortfolioScreen::on_buy_requested);
     connect(command_bar_, &PortfolioCommandBar::sell_requested, this, &PortfolioScreen::on_sell_requested);
     connect(command_bar_, &PortfolioCommandBar::dividend_requested, this, [this]() {
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("Dividend entry is not available while this portfolio is server-authoritative."));
+            return;
+        }
         if (selected_id_.isEmpty() || current_summary_.holdings.isEmpty())
             return;
         QStringList syms;
@@ -176,6 +182,11 @@ void PortfolioScreen::build_ui() {
     connect(command_bar_, &PortfolioCommandBar::export_csv_requested, this, [this]() {
         if (selected_id_.isEmpty())
             return;
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("CSV export is not available while this portfolio workspace is server-authoritative."));
+            return;
+        }
         QString path = QFileDialog::getSaveFileName(this, tr("Export CSV"), "portfolio.csv", tr("CSV Files (*.csv)"));
         if (!path.isEmpty()) {
             services::PortfolioService::instance().export_csv(selected_id_, path);
@@ -185,6 +196,11 @@ void PortfolioScreen::build_ui() {
     connect(command_bar_, &PortfolioCommandBar::export_json_requested, this, [this]() {
         if (selected_id_.isEmpty())
             return;
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("JSON export is not available while this portfolio workspace is server-authoritative."));
+            return;
+        }
         QString path = QFileDialog::getSaveFileName(this, tr("Export JSON"), "portfolio.json", tr("JSON Files (*.json)"));
         if (!path.isEmpty()) {
             services::PortfolioService::instance().export_json(selected_id_, path);
@@ -192,6 +208,11 @@ void PortfolioScreen::build_ui() {
         }
     });
     connect(command_bar_, &PortfolioCommandBar::import_requested, this, [this]() {
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("JSON import is not available while this portfolio workspace is server-authoritative."));
+            return;
+        }
         ImportPortfolioDialog dlg(portfolios_, this);
         if (dlg.exec() == QDialog::Accepted) {
             services::PortfolioService::instance().import_json(dlg.file_path(), dlg.mode(), dlg.merge_target_id());
@@ -360,7 +381,14 @@ QWidget* PortfolioScreen::build_empty_state() {
                                        "of 12 major equities."),
                                     ui::colors::POSITIVE(), content,
                                     &empty_demo_card_.title, &empty_demo_card_.subtitle);
-    connect(demo_card, &QPushButton::clicked, this, [this]() { load_demo_portfolio(); });
+    connect(demo_card, &QPushButton::clicked, this, [this]() {
+        if (is_connected_mode()) {
+            show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                   tr("Demo portfolio loading is disabled while this workspace is server-authoritative."));
+            return;
+        }
+        load_demo_portfolio();
+    });
 
     card_row->addWidget(create_card);
     card_row->addWidget(import_card);
@@ -457,12 +485,18 @@ void PortfolioScreen::update_content_state() {
         if (has_portfolios) {
             command_bar_->set_has_selection(false);
         }
-    } else if (!summary_loaded_) {
+    } else if (!summary_loaded_ && summary_loading_) {
         content_stack_->setCurrentIndex(1); // loading
         stats_ribbon_->setVisible(false);
         status_bar_->setVisible(true);
         command_bar_->setVisible(true);
         command_bar_->set_has_selection(false);
+    } else if (!summary_loaded_) {
+        content_stack_->setCurrentIndex(0); // empty / failed load fallback
+        stats_ribbon_->setVisible(false);
+        status_bar_->setVisible(true);
+        command_bar_->setVisible(true);
+        command_bar_->set_has_selection(true);
     } else if (show_ffn_) {
         content_stack_->setCurrentIndex(4); // FFN view
         stats_ribbon_->setVisible(false);
@@ -632,6 +666,11 @@ QWidget* PortfolioScreen::build_main_view() {
                 }
                 if (!match)
                     return;
+                if (is_connected_mode()) {
+                    show_portfolio_message(tr("Unavailable In Connected Mode"),
+                                           tr("Transaction edits are not available while this portfolio workspace is server-authoritative."));
+                    return;
+                }
                 EditTransactionDialog dlg(*match, this);
                 if (dlg.exec() == QDialog::Accepted) {
                     services::PortfolioService::instance().update_transaction(match->id, dlg.quantity(), dlg.price(),
@@ -646,7 +685,9 @@ QWidget* PortfolioScreen::build_main_view() {
             return;
         ConfirmDeleteDialog dlg(QString("%1 (%2 shares)").arg(symbol).arg(h->quantity, 0, 'f', 2), this);
         if (dlg.exec() == QDialog::Accepted) {
-            services::PortfolioService::instance().sell_asset(selected_id_, symbol, h->quantity, h->current_price);
+            run_portfolio_mutation(PendingMutation::SellAsset, [this, symbol, h]() {
+                services::PortfolioService::instance().sell_asset(selected_id_, symbol, h->quantity, h->current_price);
+            });
         }
     });
     connect(positions_filter_edit_, &QLineEdit::textChanged, blotter_, &PortfolioBlotter::set_filter);
@@ -676,7 +717,9 @@ QWidget* PortfolioScreen::build_main_view() {
     connect(order_panel_, &PortfolioOrderPanel::buy_submitted, this, [this]() {
         AddAssetDialog dlg(this);
         if (dlg.exec() == QDialog::Accepted) {
-            services::PortfolioService::instance().add_asset(selected_id_, dlg.symbol(), dlg.quantity(), dlg.price());
+            run_portfolio_mutation(PendingMutation::AddAsset, [this, &dlg]() {
+                services::PortfolioService::instance().add_asset(selected_id_, dlg.symbol(), dlg.quantity(), dlg.price());
+            });
         }
     });
     connect(order_panel_, &PortfolioOrderPanel::sell_submitted, this, [this]() {
@@ -685,7 +728,9 @@ QWidget* PortfolioScreen::build_main_view() {
             return;
         SellAssetDialog dlg(h->symbol, h->quantity, this);
         if (dlg.exec() == QDialog::Accepted) {
-            services::PortfolioService::instance().sell_asset(selected_id_, h->symbol, dlg.quantity(), dlg.price());
+            run_portfolio_mutation(PendingMutation::SellAsset, [this, h, &dlg]() {
+                services::PortfolioService::instance().sell_asset(selected_id_, h->symbol, dlg.quantity(), dlg.price());
+            });
         }
     });
 
