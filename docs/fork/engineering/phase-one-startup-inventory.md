@@ -52,4 +52,4 @@ Notes:
 
 - TLS/OpenSSL bootstrap and `QT_TLS_BACKEND` early init are assigned to `PhaseOneStartupCoordinator`, the earliest shared startup owner.
 - InstanceLock and same-profile new-window IPC handoff are assigned to `PhaseOneClientLifecycle`.
-- Task 7 only moves the dedicated server runtime path. Client-path extraction remains deferred to Task 7b, so `main.cpp` continues to own the existing client startup flow until that follow-up lands.
+- Task 7b is now landed: client-path extraction lives across `PhaseOneClientStartup`, `PhaseOneClientLifecycle`, and `PhaseOneClientUiStartup`, while `main.cpp` is reduced to CLI parse, pre-app coordinator setup, server-mode dispatch, and `QApplication` construction for the client path.

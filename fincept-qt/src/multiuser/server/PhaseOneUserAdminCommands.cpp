@@ -135,7 +135,7 @@ fincept::Result<void> PhaseOneUserAdminCommands::transfer_admin(int target_user_
         return fincept::Result<void>::err("user_not_found");
     }
 
-    if (target->status != QStringLiteral("active")) {
+    if (target->status != QStringLiteral("active") || target->password_hash.isEmpty()) {
         write_audit(actor, QStringLiteral("transfer_admin"), QStringLiteral("user:%1").arg(target_user_id),
                     QStringLiteral("failure"));
         return fincept::Result<void>::err("invalid_admin_transfer");

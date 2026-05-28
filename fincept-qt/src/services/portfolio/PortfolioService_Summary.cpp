@@ -355,7 +355,6 @@ void PortfolioService::finalize_summary(const QString& portfolio_id,
         summary_cache_[portfolio_id] = {summary, QDateTime::currentSecsSinceEpoch()};
     }
 
-    // Save snapshot for performance history
     QString today = QDate::currentDate().toString(Qt::ISODate);
     PortfolioRepository::instance().save_snapshot(portfolio_id, summary.total_market_value,
                                                   summary.total_cost_basis, summary.total_unrealized_pnl,

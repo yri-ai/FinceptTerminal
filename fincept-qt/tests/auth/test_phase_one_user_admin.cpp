@@ -95,6 +95,7 @@ class PhaseOneUserAdminTest : public QObject {
     void blank_usernames_are_rejected();
     void sole_admin_cannot_be_disabled_and_transfer_preserves_exactly_one_active_admin();
     void transfer_admin_reports_missing_target_as_user_not_found();
+    void transfer_admin_requires_initialized_password();
 };
 
 void PhaseOneUserAdminTest::init() {
@@ -230,6 +231,7 @@ void PhaseOneUserAdminTest::sole_admin_cannot_be_disabled_and_transfer_preserves
     const auto operator_user = harness().user_repository.find_by_username(QStringLiteral("operator"));
     QVERIFY(admin.has_value());
     QVERIFY(operator_user.has_value());
+    QVERIFY(harness().user_admin_server.set_initial_password(operator_user->user_id, QStringLiteral("Operator123")).is_ok());
 
     const auto disable_admin = harness().user_admin_server.disable_user(admin->user_id);
     QVERIFY(disable_admin.is_err());
@@ -259,6 +261,18 @@ void PhaseOneUserAdminTest::transfer_admin_reports_missing_target_as_user_not_fo
 
     QVERIFY(transfer.is_err());
     QCOMPARE(QString::fromStdString(transfer.error()), QStringLiteral("user_not_found"));
+}
+
+void PhaseOneUserAdminTest::transfer_admin_requires_initialized_password() {
+    QVERIFY(harness().user_admin_server.bootstrap(QStringLiteral("admin"), kValidPassword).is_ok());
+    QVERIFY(harness().user_admin_server.create_user(QStringLiteral("operator")).is_ok());
+
+    const auto operator_user = harness().user_repository.find_by_username(QStringLiteral("operator"));
+    QVERIFY(operator_user.has_value());
+
+    const auto transfer = harness().user_admin_server.transfer_admin(operator_user->user_id);
+    QVERIFY(transfer.is_err());
+    QCOMPARE(QString::fromStdString(transfer.error()), QStringLiteral("invalid_admin_transfer"));
 }
 
 } // namespace
