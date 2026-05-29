@@ -1718,8 +1718,6 @@ set(FINCEPT_SERVER_SOURCES
     src/storage/sqlite/migrations/v029_secure_credentials.cpp
     src/storage/sqlite/migrations/v030_max_tool_rounds.cpp
     src/storage/sqlite/migrations/v031_rss_feeds.cpp
-    src/storage/sqlite/migrations/v032_multiuser_phase_one.cpp
-    src/storage/sqlite/migrations/v033_portfolio_asset_names.cpp
     src/storage/repositories/PortfolioRepository.cpp
     src/storage/repositories/PortfolioHoldingsRepository.cpp
 
@@ -2989,7 +2987,7 @@ endif()
 
 if(WIN32)
     # Windows: install exe + all DLLs beside it (windeployqt already copies them)
-    install(TARGETS FinceptTerminal RUNTIME DESTINATION "." COMPONENT core)
+    install(TARGETS FinceptTerminal FinceptServer RUNTIME DESTINATION "." COMPONENT core)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
             DESTINATION "scripts" COMPONENT scripts
             REGEX "(\\.deleted\\.|\\.pytest_cache|\\.benchmarks|__pycache__|\\.pyc$|\\.db$|\\.sqlite$|\\.sqlite3$|\\.bak$|\\.orig$)" EXCLUDE)
@@ -3004,6 +3002,7 @@ if(WIN32)
 elseif(APPLE)
     # macOS: install the .app bundle
     install(TARGETS FinceptTerminal BUNDLE DESTINATION "." COMPONENT core)
+    install(TARGETS FinceptServer RUNTIME DESTINATION "." COMPONENT core)
     # Requirements files — deployed beside the .app so PythonSetupManager finds them
     install(FILES
             "${CMAKE_CURRENT_SOURCE_DIR}/resources/requirements-numpy1.txt"
@@ -3017,6 +3016,8 @@ else()
     # ARM64 cross-compile, configure with `-DCMAKE_SYSTEM_PROCESSOR=aarch64`
     # and an aarch64 Qt SDK on CMAKE_PREFIX_PATH.
     install(TARGETS FinceptTerminal
+            RUNTIME DESTINATION "bin" COMPONENT core)
+    install(TARGETS FinceptServer
             RUNTIME DESTINATION "bin" COMPONENT core)
 
     # Qt Wayland QPA plugin — required so the app renders correctly on
