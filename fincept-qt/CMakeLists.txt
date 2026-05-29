@@ -3002,7 +3002,7 @@ if(WIN32)
 elseif(APPLE)
     # macOS: install the .app bundle
     install(TARGETS FinceptTerminal BUNDLE DESTINATION "." COMPONENT core)
-    install(TARGETS FinceptServer RUNTIME DESTINATION "." COMPONENT core)
+    install(TARGETS FinceptServer RUNTIME DESTINATION "FinceptTerminal.app/Contents/MacOS" COMPONENT core)
     # Requirements files — deployed beside the .app so PythonSetupManager finds them
     install(FILES
             "${CMAKE_CURRENT_SOURCE_DIR}/resources/requirements-numpy1.txt"
