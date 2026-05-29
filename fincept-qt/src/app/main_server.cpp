@@ -1,8 +1,6 @@
 #include "app/PhaseOneServerCli.h"
 #include "app/PhaseOneStartupCoordinator.h"
 
-#include <QApplication>
-
 #include <cstdio>
 
 int main(int argc, char* argv[]) {
@@ -12,17 +10,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (cli.options.mode == fincept::PhaseOneProcessMode::Server) {
-        fprintf(stderr,
-                "[PhaseOneServerCli] --server is no longer supported in FinceptTerminal. "
-                "Use FinceptServer instead.\n");
-        return 1;
-    }
+    fincept::PhaseOneServerCliOptions options = cli.options;
+    options.mode = fincept::PhaseOneProcessMode::Server;
 
     fincept::PhaseOneStartupCoordinator startup_coordinator;
     startup_coordinator.initialize_pre_app();
+    if (const auto server_exit = startup_coordinator.maybe_run(argc, argv, options); server_exit.has_value())
+        return *server_exit;
 
-    startup_coordinator.initialize_client_pre_app(cli.options);
-    QApplication app(argc, argv);
-    return startup_coordinator.run_client(app);
+    fprintf(stderr, "[PhaseOneServerCli] server startup mode was not selected\n");
+    return 1;
 }

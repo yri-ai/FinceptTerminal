@@ -9,6 +9,7 @@
 #include "services/economics/EconomicsService.h"
 
 #include <QDate>
+#include <QHBoxLayout>
 #include <QJsonArray>
 #include <QLabel>
 #include <QListWidget>
