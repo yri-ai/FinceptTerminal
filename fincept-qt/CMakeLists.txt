@@ -1643,8 +1643,7 @@ set(SCREEN_SOURCES
 )
 
 # App
-set(APP_SOURCES
-    src/app/main.cpp
+set(APP_SHARED_SOURCES
     src/app/InstanceLock.cpp
     # WindowFrame is split across multiple files; see WindowFrame.cpp header
     # comment for the layout. All variants stay outside unity build (see
@@ -1664,7 +1663,68 @@ set(APP_SOURCES
     src/app/MonitorPickerDialog.cpp
 )
 
+set(APP_CLIENT_MAIN_SOURCE src/app/main.cpp)
+set(APP_SERVER_MAIN_SOURCE src/app/main_server.cpp)
+
 include(cmake/phase_one_multiuser.cmake)
+
+set(APP_CLIENT_SOURCES ${APP_CLIENT_MAIN_SOURCE} ${APP_SHARED_SOURCES})
+set(APP_SERVER_SOURCES ${APP_SERVER_MAIN_SOURCE} ${APP_SHARED_SOURCES})
+
+set(FINCEPT_SERVER_SOURCES
+    ${APP_SERVER_MAIN_SOURCE}
+    src/app/PhaseOneServerCli.cpp
+    src/app/PhaseOneServerPaths.cpp
+    src/app/PhaseOneStartupCoordinator.cpp
+    src/app/PhaseOneMigrationRegistry.cpp
+
+    src/core/config/AppConfig.cpp
+    src/core/config/AppPaths.cpp
+    src/core/config/ProfileManager.cpp
+    src/core/crash/CrashHandler.cpp
+    src/core/logging/Logger.cpp
+
+    src/storage/sqlite/Database.cpp
+    src/storage/sqlite/CacheDatabase.cpp
+    src/storage/sqlite/migrations/MigrationRunner.cpp
+    src/storage/sqlite/migrations/v001_initial.cpp
+    src/storage/sqlite/migrations/v002_llm_chat.cpp
+    src/storage/sqlite/migrations/v003_data_mcp_agents.cpp
+    src/storage/sqlite/migrations/v004_cleanup.cpp
+    src/storage/sqlite/migrations/v005_dashboard_layout.cpp
+    src/storage/sqlite/migrations/v006_portfolio_multi.cpp
+    src/storage/sqlite/migrations/v007_news_baselines.cpp
+    src/storage/sqlite/migrations/v008_workflows.cpp
+    src/storage/sqlite/migrations/v009_instruments.cpp
+    src/storage/sqlite/migrations/v010_llm_profiles.cpp
+    src/storage/sqlite/migrations/v011_custom_indices.cpp
+    src/storage/sqlite/migrations/v012_data_normalization.cpp
+    src/storage/sqlite/migrations/v013_news_articles.cpp
+    src/storage/sqlite/migrations/v014_llm_tools_toggle.cpp
+    src/storage/sqlite/migrations/v015_screen_state.cpp
+    src/storage/sqlite/migrations/v016_broker_accounts.cpp
+    src/storage/sqlite/migrations/v017_perf_indexes.cpp
+    src/storage/sqlite/migrations/v018_widget_config.cpp
+    src/storage/sqlite/migrations/v019_sector_cache.cpp
+    src/storage/sqlite/migrations/v020_security_audit_log.cpp
+    src/storage/sqlite/migrations/v021_max_tokens_default.cpp
+    src/storage/sqlite/migrations/v022_portfolio_broker_link.cpp
+    src/storage/sqlite/migrations/v023_algo_trading_deploy.cpp
+    src/storage/sqlite/migrations/v024_alpha_arena.cpp
+    src/storage/sqlite/migrations/v025_oi_snapshots.cpp
+    src/storage/sqlite/migrations/v026_strategies.cpp
+    src/storage/sqlite/migrations/v027_fii_dii.cpp
+    src/storage/sqlite/migrations/v028_iv_history.cpp
+    src/storage/sqlite/migrations/v029_secure_credentials.cpp
+    src/storage/sqlite/migrations/v030_max_tool_rounds.cpp
+    src/storage/sqlite/migrations/v031_rss_feeds.cpp
+    src/storage/repositories/PortfolioRepository.cpp
+    src/storage/repositories/PortfolioHoldingsRepository.cpp
+
+    ${PHASE1_STORAGE_SOURCES}
+    ${PHASE1_SERVER_SOURCES}
+    ${PHASE1_HTTP_SOURCES}
+)
 
 # All screen files compiled individually — they have local statics/functions that
 # collide when batched, and many use QLineEdit/etc without explicit includes.
@@ -2310,14 +2370,24 @@ add_executable(FinceptTerminal ${_FINCEPT_EXE_FLAGS}
     ${SERVICE_SOURCES}
     ${UI_SOURCES}
     ${SCREEN_SOURCES}
-    ${APP_SOURCES}
+    ${APP_CLIENT_SOURCES}
     src/services/updater/UpdateService.cpp
     ${_FINCEPT_PLATFORM_SOURCES}
+)
+
+add_executable(FinceptServer
+    ${FINCEPT_SERVER_SOURCES}
 )
 
 target_include_directories(FinceptTerminal PRIVATE
     src
 )
+
+target_include_directories(FinceptServer PRIVATE
+    src
+)
+
+set_target_properties(FinceptServer PROPERTIES UNITY_BUILD OFF)
 
 # ── Translations (.ts → .qm → resources) ──────────────────────────────────────
 # Hand-authored .ts files under translations/ are compiled to .qm at build time
@@ -2624,7 +2694,28 @@ target_include_directories(FinceptTerminal PRIVATE
     "${OPENSSL_INCLUDE_DIR}"
     "${md4c_SOURCE_DIR}/src"
 )
+target_include_directories(FinceptServer PRIVATE
+    "${OPENSSL_INCLUDE_DIR}"
+    "${md4c_SOURCE_DIR}/src"
+)
 target_link_libraries(FinceptTerminal PRIVATE
+    Qt6::Widgets
+    Qt6::Charts
+    Qt6::PrintSupport
+    Qt6::Network
+    Qt6::Sql
+    Qt6::Concurrent
+    Qt6::Multimedia
+    QXlsx::QXlsx
+    qgeoview
+    md4c
+    md4c-html
+    qtadvanceddocking-qt6
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    fincept_ed25519
+)
+target_link_libraries(FinceptServer PRIVATE
     Qt6::Widgets
     Qt6::Charts
     Qt6::PrintSupport
@@ -2650,6 +2741,7 @@ target_link_libraries(FinceptTerminal PRIVATE
 # src/core/crash/CrashHandler.cpp).
 if(WIN32)
     target_link_libraries(FinceptTerminal PRIVATE dbghelp)
+    target_link_libraries(FinceptServer PRIVATE dbghelp)
 endif()
 
 # Copy OpenSSL DLLs to build output — Windows only
@@ -2702,25 +2794,34 @@ endif()
 # always matches the project() VERSION declared at the top of this file.
 target_compile_definitions(FinceptTerminal PRIVATE
     FINCEPT_VERSION_STRING="${CMAKE_PROJECT_VERSION}")
+target_compile_definitions(FinceptServer PRIVATE
+    FINCEPT_VERSION_STRING="${CMAKE_PROJECT_VERSION}")
 
 # ── Optional feature compile definitions (applied after add_executable) ──────
 if(FINCEPT_HAS_PRIVATE_HEADERS)
     target_compile_definitions(FinceptTerminal PRIVATE FINCEPT_HAS_QXLSX)
+    target_compile_definitions(FinceptServer PRIVATE FINCEPT_HAS_QXLSX)
 endif()
 
 if(HAS_WEBSOCKETS)
     target_link_libraries(FinceptTerminal PRIVATE Qt6::WebSockets)
+    target_link_libraries(FinceptServer PRIVATE Qt6::WebSockets)
     target_compile_definitions(FinceptTerminal PRIVATE HAS_QT_WEBSOCKETS)
+    target_compile_definitions(FinceptServer PRIVATE HAS_QT_WEBSOCKETS)
 endif()
 
 if(HAS_MULTIMEDIA)
     target_link_libraries(FinceptTerminal PRIVATE Qt6::MultimediaWidgets)
+    target_link_libraries(FinceptServer PRIVATE Qt6::MultimediaWidgets)
     target_compile_definitions(FinceptTerminal PRIVATE HAS_QT_MULTIMEDIA)
+    target_compile_definitions(FinceptServer PRIVATE HAS_QT_MULTIMEDIA)
 endif()
 
 if(HAS_TTS)
     target_link_libraries(FinceptTerminal PRIVATE Qt6::TextToSpeech)
+    target_link_libraries(FinceptServer PRIVATE Qt6::TextToSpeech)
     target_compile_definitions(FinceptTerminal PRIVATE HAS_QT_TTS)
+    target_compile_definitions(FinceptServer PRIVATE HAS_QT_TTS)
 endif()
 
 # ── Copy qgeoview DLL next to the exe so it's found at runtime ────────────────
@@ -2886,7 +2987,7 @@ endif()
 
 if(WIN32)
     # Windows: install exe + all DLLs beside it (windeployqt already copies them)
-    install(TARGETS FinceptTerminal RUNTIME DESTINATION "." COMPONENT core)
+    install(TARGETS FinceptTerminal FinceptServer RUNTIME DESTINATION "." COMPONENT core)
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/scripts/"
             DESTINATION "scripts" COMPONENT scripts
             REGEX "(\\.deleted\\.|\\.pytest_cache|\\.benchmarks|__pycache__|\\.pyc$|\\.db$|\\.sqlite$|\\.sqlite3$|\\.bak$|\\.orig$)" EXCLUDE)
@@ -2901,6 +3002,7 @@ if(WIN32)
 elseif(APPLE)
     # macOS: install the .app bundle
     install(TARGETS FinceptTerminal BUNDLE DESTINATION "." COMPONENT core)
+    install(TARGETS FinceptServer RUNTIME DESTINATION "FinceptTerminal.app/Contents/MacOS" COMPONENT core)
     # Requirements files — deployed beside the .app so PythonSetupManager finds them
     install(FILES
             "${CMAKE_CURRENT_SOURCE_DIR}/resources/requirements-numpy1.txt"
@@ -2914,6 +3016,8 @@ else()
     # ARM64 cross-compile, configure with `-DCMAKE_SYSTEM_PROCESSOR=aarch64`
     # and an aarch64 Qt SDK on CMAKE_PREFIX_PATH.
     install(TARGETS FinceptTerminal
+            RUNTIME DESTINATION "bin" COMPONENT core)
+    install(TARGETS FinceptServer
             RUNTIME DESTINATION "bin" COMPONENT core)
 
     # Qt Wayland QPA plugin — required so the app renders correctly on

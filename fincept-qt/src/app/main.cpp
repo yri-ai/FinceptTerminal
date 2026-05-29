@@ -12,10 +12,15 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    if (cli.options.mode == fincept::PhaseOneProcessMode::Server) {
+        fprintf(stderr,
+                "[PhaseOneServerCli] --server is no longer supported in FinceptTerminal. "
+                "Use FinceptServer instead.\n");
+        return 1;
+    }
+
     fincept::PhaseOneStartupCoordinator startup_coordinator;
     startup_coordinator.initialize_pre_app();
-    if (const auto server_exit = startup_coordinator.maybe_run(argc, argv, cli.options); server_exit.has_value())
-        return *server_exit;
 
     startup_coordinator.initialize_client_pre_app(cli.options);
     QApplication app(argc, argv);
